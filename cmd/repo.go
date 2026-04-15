@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,6 +13,23 @@ import (
 	"github.com/autelrobotics/codearts-cli/internal/core"
 	"github.com/autelrobotics/codearts-cli/internal/output"
 )
+
+// parseRepoID rejects anything that isn't a pure positive integer (no
+// hex, no leading signs, no whitespace). Earlier this used fmt.Sscanf
+// which silently truncated UUIDs to their leading digit run — e.g. the
+// UUID "759278ab..." quietly parsed as 759278. That would quietly send
+// the request to the wrong repository, so we reject non-numeric input
+// up-front.
+func parseRepoID(raw string) (int, error) {
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 {
+		return 0, fmt.Errorf(
+			"repository_id must be a positive integer, got %q — note that repo_id is the numeric repo ID (visible in CodeArts Repo console), NOT the 32-char project UUID",
+			raw,
+		)
+	}
+	return v, nil
+}
 
 func newRepoCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -84,9 +102,11 @@ Or pass the whole JSON body:
 API reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if _, err := fmt.Sscanf(args[0], "%d", &o.repoID); err != nil || o.repoID <= 0 {
-				return fmt.Errorf("repository_id must be a positive integer, got %q", args[0])
+			v, err := parseRepoID(args[0])
+			if err != nil {
+				return err
 			}
+			o.repoID = v
 			return runMRCreate(cmd, o)
 		},
 	}
@@ -221,12 +241,16 @@ etc.), pass --body-file with the full JSON.
 API reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequestDiscussion.html`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if _, err := fmt.Sscanf(args[0], "%d", &o.repoID); err != nil || o.repoID <= 0 {
-				return fmt.Errorf("repository_id must be a positive integer, got %q", args[0])
+			v, err := parseRepoID(args[0])
+			if err != nil {
+				return err
 			}
-			if _, err := fmt.Sscanf(args[1], "%d", &o.mrIID); err != nil || o.mrIID <= 0 {
+			o.repoID = v
+			iid, err := strconv.Atoi(args[1])
+			if err != nil || iid <= 0 {
 				return fmt.Errorf("merge_request_iid must be a positive integer, got %q", args[1])
 			}
+			o.mrIID = iid
 			return runMRComment(cmd, o)
 		},
 	}
