@@ -1,6 +1,6 @@
 # codearts-cli
 
-华为云 **CodeArts** 命令行工具。当前覆盖三个模块共 **7 个接口**：
+华为云 **CodeArts** 命令行工具。当前覆盖三个模块共 **8 个接口**：
 
 | 模块       | 命令                              | API                          |
 | ---------- | --------------------------------- | ---------------------------- |
@@ -10,6 +10,7 @@
 | 工作项管理 | `issue show`                      | ShowIssueDetail              |
 | 工作项管理 | `issue create`                    | CreateIpdProjectIssue        |
 | 工作项管理 | `issue batch-update`              | BatchUpdateIpdIssues         |
+| 代码托管   | `repo mr create`                  | CreateMergeRequest           |
 | 代码托管   | `repo mr comment`                 | CreateMergeRequestDiscussion |
 
 设计与架构参考了 `github.com/larksuite/cli`（飞书 CLI）：Cobra 命令树 +
@@ -73,7 +74,10 @@ codearts-cli issue create --title "任务标题" --description "..." \
 codearts-cli issue batch-update --id a,b,c --category US \
                                 --attribute '{"priority":"high"}'
 
-# 6. 给 MR 发检视意见
+# 6. 创建 MR
+codearts-cli repo mr create <repo_id> --title "..." --source feat/x --target main
+
+# 7. 给 MR 发检视意见
 codearts-cli repo mr comment <repo_id> <mr_iid> --body "LGTM"
 ```
 
@@ -209,6 +213,41 @@ codearts-cli issue batch-update \
 ```
 
 `--id` 支持重复或逗号分隔。`attribute.category` 必填，通过 `--category` 或 `--attribute` 里任一方式提供。
+
+### `repo mr create <repository_id>`
+
+[`POST /v4/repositories/{repository_id}/merge-requests`](https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html)
+
+```bash
+# 最简
+codearts-cli repo mr create 12345 \
+  --title "feat: 接入 codearts-cli" \
+  --source feat/cli --target main
+
+# 带评审 / 关联工作项 / squash
+codearts-cli repo mr create 12345 \
+  --title "feat: x" --source feat/x --target main \
+  --reviewers "uid-a,uid-b" --assignees "uid-c" \
+  --squash --squash-message "feat: squashed" \
+  --force-remove-source \
+  --work-item 1251275102548402177
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--title` / `--source` / `--target`（必填） | MR 标题 / 源分支 / 目标分支 |
+| `--description` | MR 描述 |
+| `--reviewers` / `--assignees` | 评审人 / 指派人 user_id 逗号分隔 |
+| `--approval-reviewers` / `--approval-approvers` | 审批评审人 / 审批人 |
+| `--work-item` | 关联工作项 ID（可重复或逗号分隔） |
+| `--milestone-id` | 里程碑 ID |
+| `--squash` / `--squash-message` | 合并时 squash 并指定 commit 消息 |
+| `--force-remove-source` | 合并后自动删除源分支 |
+| `--only-assignee-merge` | 仅允许指派人合入 |
+| `--target-repo-id` | 跨仓库 MR 的目标仓库 ID |
+| `--body-json` / `--body-file` | 直接传完整 JSON body（其余 flag 失效） |
+
+`<repository_id>` 必须是整数仓库 ID。
 
 ### `repo mr comment <repository_id> <merge_request_iid>`
 

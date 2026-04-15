@@ -5,6 +5,59 @@ import (
 	"fmt"
 )
 
+// CreateMergeRequest creates a merge request on a repository.
+//
+// Reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html
+// Endpoint:  POST /v4/repositories/{repository_id}/merge-requests
+//
+// title, source_branch and target_branch are the minimum required body
+// fields. All other fields (reviewer_ids, labels, squash, work_item_ids,
+// …) are optional — pass them via a free-form map or the struct below.
+
+// CreateMRRequest models the required+common fields for creating an MR.
+// For the long-tail optional fields (labels, milestone_id, squash,
+// work_item_ids, …), pass a free-form map to CreateMergeRequest instead.
+type CreateMRRequest struct {
+	Title                   string   `json:"title"`                                // required
+	SourceBranch            string   `json:"source_branch"`                        // required
+	TargetBranch            string   `json:"target_branch"`                        // required
+	Description             string   `json:"description,omitempty"`
+	TargetRepositoryID      int      `json:"target_repository_id,omitempty"`
+	ReviewerIDs             string   `json:"reviewer_ids,omitempty"`               // comma-separated
+	AssigneeIDs             string   `json:"assignee_ids,omitempty"`               // comma-separated
+	ApprovalReviewerIDs     string   `json:"approval_reviewer_ids,omitempty"`      // comma-separated
+	ApprovalApproversIDs    string   `json:"approval_approvers_ids,omitempty"`     // comma-separated
+	MilestoneID             int      `json:"milestone_id,omitempty"`
+	ForceRemoveSourceBranch bool     `json:"force_remove_source_branch,omitempty"`
+	Squash                  bool     `json:"squash,omitempty"`
+	SquashCommitMessage     string   `json:"squash_commit_message,omitempty"`
+	WorkItemIDs             []string `json:"work_item_ids,omitempty"`
+	IsUseTempBranch         bool     `json:"is_use_temp_branch,omitempty"`
+	OnlyAssigneeCanMerge    bool     `json:"only_assignee_can_merge,omitempty"`
+}
+
+// CreateMergeRequest posts a new MR. body may be *CreateMRRequest or a
+// free-form map when extra fields (labels, …) are needed.
+func (c *Client) CreateMergeRequest(ctx context.Context, repositoryID int, body interface{}) (map[string]interface{}, error) {
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("repository_id must be a positive integer")
+	}
+	if body == nil {
+		return nil, fmt.Errorf("request body is required (title/source_branch/target_branch)")
+	}
+	if req, ok := body.(*CreateMRRequest); ok {
+		if req.Title == "" || req.SourceBranch == "" || req.TargetBranch == "" {
+			return nil, fmt.Errorf("title, source_branch and target_branch are all required")
+		}
+	}
+	path := fmt.Sprintf("/v4/repositories/%d/merge-requests", repositoryID)
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "POST", c.RepoEndpoint(), path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CreateMergeRequestDiscussion creates a review discussion on a merge
 // request.
 //

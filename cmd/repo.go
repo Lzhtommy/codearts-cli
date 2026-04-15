@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,8 +27,163 @@ func newRepoMRCmd() *cobra.Command {
 		Use:   "mr",
 		Short: "Merge request operations",
 	}
+	cmd.AddCommand(newRepoMRCreateCmd())
 	cmd.AddCommand(newRepoMRCommentCmd())
 	return cmd
+}
+
+// ----------------------- repo mr create -----------------------
+
+type mrCreateOpts struct {
+	repoID               int
+	title                string
+	sourceBranch         string
+	targetBranch         string
+	description          string
+	targetRepoID         int
+	reviewerIDs          string
+	assigneeIDs          string
+	approvalReviewerIDs  string
+	approvalApproversIDs string
+	milestoneID          int
+	forceRemoveSource    bool
+	squash               bool
+	squashCommitMessage  string
+	workItemIDs          []string
+	onlyAssigneeMerge    bool
+	bodyJSON             string
+	bodyFile             string
+	dryRun               bool
+}
+
+func newRepoMRCreateCmd() *cobra.Command {
+	o := &mrCreateOpts{}
+	cmd := &cobra.Command{
+		Use:   "create <repository_id>",
+		Short: "Create a merge request (CreateMergeRequest API)",
+		Long: `Create a merge request on a repository.
+
+<repository_id> is the numeric repository ID (int), not a UUID.
+
+Minimum:
+    codearts-cli repo mr create 12345 \
+      --title "feat: my change" \
+      --source feat/x --target main
+
+Advanced (reviewers / approvers / squash / work items):
+    codearts-cli repo mr create 12345 \
+      --title "..." --source feat/x --target main \
+      --reviewers "user_id_a,user_id_b" \
+      --assignees "user_id_c" \
+      --squash --force-remove-source \
+      --work-item 1251275102548402177
+
+Or pass the whole JSON body:
+    codearts-cli repo mr create 12345 --body-file mr.json
+
+API reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, err := fmt.Sscanf(args[0], "%d", &o.repoID); err != nil || o.repoID <= 0 {
+				return fmt.Errorf("repository_id must be a positive integer, got %q", args[0])
+			}
+			return runMRCreate(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.title, "title", "", "MR title (required)")
+	cmd.Flags().StringVar(&o.sourceBranch, "source", "", "source_branch (required)")
+	cmd.Flags().StringVar(&o.targetBranch, "target", "", "target_branch (required)")
+	cmd.Flags().StringVar(&o.description, "description", "", "MR description")
+	cmd.Flags().IntVar(&o.targetRepoID, "target-repo-id", 0, "target_repository_id (cross-repo MR)")
+	cmd.Flags().StringVar(&o.reviewerIDs, "reviewers", "", "Comma-separated reviewer user_ids")
+	cmd.Flags().StringVar(&o.assigneeIDs, "assignees", "", "Comma-separated assignee user_ids")
+	cmd.Flags().StringVar(&o.approvalReviewerIDs, "approval-reviewers", "", "Comma-separated approval reviewer user_ids")
+	cmd.Flags().StringVar(&o.approvalApproversIDs, "approval-approvers", "", "Comma-separated approver user_ids")
+	cmd.Flags().IntVar(&o.milestoneID, "milestone-id", 0, "milestone_id")
+	cmd.Flags().BoolVar(&o.forceRemoveSource, "force-remove-source", false, "Auto-delete source branch on merge")
+	cmd.Flags().BoolVar(&o.squash, "squash", false, "Squash commits on merge")
+	cmd.Flags().StringVar(&o.squashCommitMessage, "squash-message", "", "Squash commit message (only with --squash)")
+	cmd.Flags().StringSliceVar(&o.workItemIDs, "work-item", nil, "Associated work item id (repeatable; comma-separated also works)")
+	cmd.Flags().BoolVar(&o.onlyAssigneeMerge, "only-assignee-merge", false, "Restrict merge to assignees only")
+	cmd.Flags().StringVar(&o.bodyJSON, "body-json", "", "Full JSON body (overrides flag-based fields)")
+	cmd.Flags().StringVar(&o.bodyFile, "body-file", "", "Path to a JSON file for the full body")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runMRCreate(cmd *cobra.Command, o *mrCreateOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	var body interface{}
+	rawBody, err := firstNonEmpty("--body-json", o.bodyJSON, "--body-file", o.bodyFile)
+	if err != nil {
+		return err
+	}
+	if rawBody != "" {
+		m := map[string]interface{}{}
+		if err := json.Unmarshal([]byte(rawBody), &m); err != nil {
+			return fmt.Errorf("parse body JSON: %w", err)
+		}
+		body = m
+	} else {
+		if o.title == "" || o.sourceBranch == "" || o.targetBranch == "" {
+			return fmt.Errorf("--title, --source and --target are all required (or pass --body-json / --body-file)")
+		}
+		// Flatten repeatable / comma-separated --work-item into a single
+		// flat slice, matching the behavior of `issue batch-update --id`.
+		var flatItems []string
+		for _, entry := range o.workItemIDs {
+			for _, s := range strings.Split(entry, ",") {
+				if v := strings.TrimSpace(s); v != "" {
+					flatItems = append(flatItems, v)
+				}
+			}
+		}
+		body = &client.CreateMRRequest{
+			Title:                   o.title,
+			SourceBranch:            o.sourceBranch,
+			TargetBranch:            o.targetBranch,
+			Description:             o.description,
+			TargetRepositoryID:      o.targetRepoID,
+			ReviewerIDs:             o.reviewerIDs,
+			AssigneeIDs:             o.assigneeIDs,
+			ApprovalReviewerIDs:     o.approvalReviewerIDs,
+			ApprovalApproversIDs:    o.approvalApproversIDs,
+			MilestoneID:             o.milestoneID,
+			ForceRemoveSourceBranch: o.forceRemoveSource,
+			Squash:                  o.squash,
+			SquashCommitMessage:     o.squashCommitMessage,
+			WorkItemIDs:             flatItems,
+			OnlyAssigneeCanMerge:    o.onlyAssigneeMerge,
+		}
+	}
+
+	if o.dryRun {
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":        "POST",
+			"path":          fmt.Sprintf("/v4/repositories/%d/merge-requests", o.repoID),
+			"repository_id": o.repoID,
+			"body":          body,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.CreateMergeRequest(context.Background(), o.repoID, body)
+	if err != nil {
+		return err
+	}
+	output.Successf(cmd.ErrOrStderr(), "Merge request created on repo %d", o.repoID)
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 // ----------------------- repo mr comment -----------------------

@@ -32,7 +32,8 @@ QUICK START:
     codearts-cli issue create --title "..." --description "..." --category US --assignee <user_id>
     codearts-cli issue batch-update --id a,b,c --category US
 
-    # 5. MR review comment (CodeArts Repo)
+    # 5. 代码托管 (CodeArts Repo)
+    codearts-cli repo mr create  <repo_id> --title "..." --source feat/x --target main
     codearts-cli repo mr comment <repo_id> <mr_iid> --body "LGTM"
 
 DEFAULTS:
