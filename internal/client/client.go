@@ -55,17 +55,13 @@ func (e *APIError) Error() string {
 }
 
 // PipelineEndpoint returns the cloudpipeline host for the configured region.
-// Precedence: $CODEARTS_PIPELINE_ENDPOINT > cfg.Endpoint (back-compat,
-// pipeline-only) > regional default.
+// Precedence: $CODEARTS_PIPELINE_ENDPOINT > regional default.
 //
 // The regional default follows Huawei Cloud's subdomain convention:
 // https://cloudpipeline-ext.<region>.myhuaweicloud.com
 func (c *Client) PipelineEndpoint() string {
 	if v := os.Getenv("CODEARTS_PIPELINE_ENDPOINT"); v != "" {
 		return strings.TrimRight(v, "/")
-	}
-	if c.cfg.Endpoint != "" {
-		return strings.TrimRight(c.cfg.Endpoint, "/")
 	}
 	return fmt.Sprintf("https://cloudpipeline-ext.%s.myhuaweicloud.com", c.cfg.Region)
 }

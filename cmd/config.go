@@ -36,7 +36,7 @@ func newConfigCmd() *cobra.Command {
 func newConfigSetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set <key> <value>",
-		Short: "Update a single config field (ak | sk | projectId | region | userId | endpoint)",
+		Short: "Update a single config field (ak | sk | projectId | region | userId)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := strings.ToLower(args[0])
@@ -56,10 +56,8 @@ func newConfigSetCmd() *cobra.Command {
 				cfg.Region = val
 			case "userid", "user_id", "user-id":
 				cfg.UserID = val
-			case "endpoint":
-				cfg.Endpoint = val
 			default:
-				return fmt.Errorf("unknown key %q; valid keys: ak, sk, projectId, region, userId, endpoint", args[0])
+				return fmt.Errorf("unknown key %q; valid keys: ak, sk, projectId, region, userId", args[0])
 			}
 			if err := core.Save(cfg); err != nil {
 				return err
@@ -80,7 +78,6 @@ type configInitOpts struct {
 	projectID string
 	region    string
 	userID    string
-	endpoint  string
 	yes       bool
 }
 
@@ -108,7 +105,6 @@ The config is stored at ~/.codearts-cli/config.json with mode 0600.`,
 	cmd.Flags().StringVar(&o.projectID, "project-id", core.DefaultProjectID, "Huawei Cloud project ID")
 	cmd.Flags().StringVar(&o.region, "region", core.DefaultRegion, "Region, e.g. cn-south-1")
 	cmd.Flags().StringVar(&o.userID, "user-id", "", "IAM user_id (32-char UUID); used as default assignee/author for write APIs")
-	cmd.Flags().StringVar(&o.endpoint, "endpoint", "", "Optional endpoint override (e.g. https://cloudpipeline-ext.cn-south-1.myhuaweicloud.com)")
 	cmd.Flags().BoolVarP(&o.yes, "yes", "y", false, "Skip overwrite confirmation if a config already exists")
 	return cmd
 }
@@ -122,7 +118,6 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 	sk := o.sk
 	projectID := o.projectID
 	region := o.region
-	endpoint := o.endpoint
 
 	// Read SK from stdin if requested. This path is the recommended one for
 	// scripts / CI because the secret never appears in the process list.
@@ -201,17 +196,6 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 		}
 		userID = v
 	}
-	if !cmd.Flags().Changed("endpoint") && interactive {
-		def := endpoint
-		if existing.Endpoint != "" {
-			def = existing.Endpoint
-		}
-		v, err := promptLine(cmd, reader, "Endpoint (optional, leave blank for default)", def, true)
-		if err != nil {
-			return err
-		}
-		endpoint = v
-	}
 
 	cfg := &core.Config{
 		AK:        strings.TrimSpace(ak),
@@ -219,7 +203,6 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 		ProjectID: strings.TrimSpace(projectID),
 		Region:    strings.TrimSpace(region),
 		UserID:    strings.TrimSpace(userID),
-		Endpoint:  strings.TrimSpace(endpoint),
 	}
 	if err := cfg.Validate(); err != nil {
 		return err

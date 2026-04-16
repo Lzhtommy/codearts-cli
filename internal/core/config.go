@@ -39,8 +39,7 @@ type Config struct {
 	// UserID is the 32-char IAM user UUID of the caller. Optional overall
 	// but required for write APIs that default assignee/author to the caller
 	// (e.g. CreateIpdProjectIssue's `assignee` field).
-	UserID   string `json:"userId,omitempty"`
-	Endpoint string `json:"endpoint,omitempty"` // optional override, e.g. https://cloudpipeline-ext.cn-south-1.myhuaweicloud.com
+	UserID string `json:"userId,omitempty"`
 }
 
 // Validate ensures required credentials are present.

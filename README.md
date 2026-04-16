@@ -87,9 +87,9 @@ codearts-cli repo mr comment <repo_id> <mr_iid> --body "LGTM"
 | --------- | ---------------------------------------- |
 | project_id | `cd130bd8357b4e7ab293a7979d1c8711`      |
 | region    | `cn-south-1`                             |
-| endpoint  | `https://cloudpipeline-ext.cn-south-1.myhuaweicloud.com`（由 region 推导） |
 
-配置文件：`~/.codearts-cli/config.json`（权限 `0600`）。
+配置文件：`~/.codearts-cli/config.json`（权限 `0600`）。端点由 region 自动推导；
+特殊需要（抓包 / 私有化部署）时用环境变量覆盖，见「端点与环境变量」章节。
 
 ## 端点与环境变量
 
