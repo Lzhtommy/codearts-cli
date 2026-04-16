@@ -42,20 +42,20 @@ type Config struct {
 	UserID string `json:"userId,omitempty"`
 }
 
-// Validate ensures required credentials are present.
+// Validate ensures required credentials are present. Errors include
+// actionable hints so the user (or AI agent) knows what to do next.
 func (c *Config) Validate() error {
 	if c.AK == "" {
-		return errors.New("ak is empty — run `codearts-cli config init`")
+		return errors.New("ak is empty — run `codearts-cli config init` to set up credentials")
 	}
 	if c.SK == "" {
-		return errors.New("sk is empty — run `codearts-cli config init`")
-	}
-	if c.ProjectID == "" {
-		return errors.New("projectId is empty")
+		return errors.New("sk is empty — run `codearts-cli config init` to set up credentials")
 	}
 	if c.Region == "" {
-		return errors.New("region is empty")
+		return errors.New("region is empty — run `codearts-cli config set region cn-south-1`")
 	}
+	// ProjectID is no longer universally required (pipeline/repo commands
+	// use --project-id flag instead). We only check AK/SK/Region here.
 	return nil
 }
 

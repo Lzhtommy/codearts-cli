@@ -28,3 +28,9 @@ func Successf(w io.Writer, format string, args ...interface{}) {
 func Errorf(w io.Writer, format string, args ...interface{}) {
 	fmt.Fprintf(w, "✗ "+format+"\n", args...)
 }
+
+// DryRunf labels a dry-run preview on stderr so the user doesn't mistake
+// it for an actual API call.
+func DryRunf(w io.Writer, format string, args ...interface{}) {
+	fmt.Fprintf(w, "[dry-run] "+format+"\n", args...)
+}

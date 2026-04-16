@@ -105,6 +105,7 @@ func runIssueList(cmd *cobra.Command, o *issueListOpts) error {
 	}
 
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":     "POST",
 			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues/query", projectID),
@@ -172,6 +173,7 @@ func runIssueShow(cmd *cobra.Command, o *issueShowOpts) error {
 		projectID = o.projectID
 	}
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		q := map[string]string{"issue_type": o.issueType}
 		if o.domainID != "" {
 			q["domain_id"] = o.domainID
@@ -301,6 +303,7 @@ func runIssueCreate(cmd *cobra.Command, o *issueCreateOpts) error {
 	}
 
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":     "POST",
 			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues", projectID),
@@ -317,9 +320,41 @@ func runIssueCreate(cmd *cobra.Command, o *issueCreateOpts) error {
 	if err != nil {
 		return err
 	}
-	output.Successf(cmd.ErrOrStderr(), "Issue created")
+	// Extract issue ID from response for a more actionable success message.
+	issueID := extractStringFromResp(resp, "id")
+	if issueID != "" {
+		output.Successf(cmd.ErrOrStderr(), "Issue created (id: %s)", issueID)
+	} else {
+		output.Successf(cmd.ErrOrStderr(), "Issue created")
+	}
 	output.PrintJSON(cmd.OutOrStdout(), resp)
 	return nil
+}
+
+// extractStringFromResp tries to pull a named field out of the standard
+// Huawei envelope: {"result": [{"id": "..."}]} or {"result": {"id": "..."}}.
+func extractStringFromResp(resp map[string]interface{}, key string) string {
+	if v, ok := resp[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	result, _ := resp["result"]
+	switch r := result.(type) {
+	case []interface{}:
+		if len(r) > 0 {
+			if m, ok := r[0].(map[string]interface{}); ok {
+				if s, ok := m[key].(string); ok {
+					return s
+				}
+			}
+		}
+	case map[string]interface{}:
+		if s, ok := r[key].(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 // ----------------------- issue batch-update -----------------------
@@ -402,6 +437,7 @@ func runIssueBatchUpdate(cmd *cobra.Command, o *issueBatchOpts) error {
 
 	body := &client.BatchUpdateIssuesRequest{IDs: flatIDs, Attribute: attr}
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":     "PUT",
 			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues/batch", projectID),

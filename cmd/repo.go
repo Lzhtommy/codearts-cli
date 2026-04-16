@@ -99,6 +99,7 @@ func runRepoList(cmd *cobra.Command, o *repoListOpts) error {
 		return fmt.Errorf("--project-id is required for repo commands")
 	}
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		q := map[string]interface{}{}
 		if o.pageIndex > 0 {
 			q["page_index"] = o.pageIndex
@@ -274,6 +275,7 @@ func runMRCreate(cmd *cobra.Command, o *mrCreateOpts) error {
 	}
 
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":        "POST",
 			"path":          fmt.Sprintf("/v4/repositories/%d/merge-requests", o.repoID),
@@ -392,6 +394,7 @@ func runMRComment(cmd *cobra.Command, o *mrCommentOpts) error {
 	}
 
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":            "POST",
 			"path":              fmt.Sprintf("/v4/repositories/%d/merge-requests/%d/discussions", o.repoID, o.mrIID),

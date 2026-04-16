@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -113,6 +112,7 @@ func runPipelineList(cmd *cobra.Command, o *pipelineListOpts) error {
 	}
 
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":     "POST",
 			"project_id": projectID,
@@ -179,6 +179,7 @@ func runPipelineStop(cmd *cobra.Command, o *pipelineStopOpts) error {
 		return fmt.Errorf("--project-id is required for pipeline commands")
 	}
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":          "POST",
 			"project_id":      projectID,
@@ -286,6 +287,7 @@ func runPipelineRun(cmd *cobra.Command, o *pipelineRunOpts) error {
 	}
 
 	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
 			"method":      "POST",
 			"project_id":  projectID,
@@ -372,7 +374,7 @@ func buildRunBody(o *pipelineRunOpts) (*client.RunPipelineRequest, error) {
 // logical input.
 func firstNonEmpty(inlineName, inline, fileName, file string) (string, error) {
 	if inline != "" && file != "" {
-		return "", fmt.Errorf("%s and %s are mutually exclusive", inlineName, fileName)
+		return "", fmt.Errorf("%s and %s are mutually exclusive — pass only one", inlineName, fileName)
 	}
 	if inline != "" {
 		return inline, nil
@@ -380,11 +382,11 @@ func firstNonEmpty(inlineName, inline, fileName, file string) (string, error) {
 	if file != "" {
 		b, err := os.ReadFile(file)
 		if err != nil {
-			return "", fmt.Errorf("read %s: %w", fileName, err)
+			return "", fmt.Errorf("read file %q (via %s): %w", file, fileName, err)
 		}
 		s := strings.TrimSpace(string(b))
 		if s == "" {
-			return "", errors.New(fileName + " is empty")
+			return "", fmt.Errorf("file %q (via %s) is empty", file, fileName)
 		}
 		return s, nil
 	}

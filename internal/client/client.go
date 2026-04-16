@@ -47,11 +47,21 @@ type APIError struct {
 
 func (e *APIError) Error() string {
 	if e.ErrorCode != "" || e.ErrorMsg != "" {
-		return fmt.Sprintf("codearts api error [%d %s]: %s %s",
-			e.StatusCode, e.Status, e.ErrorCode, e.ErrorMsg)
+		return fmt.Sprintf("codearts api error [%d]: %s — %s",
+			e.StatusCode, e.ErrorCode, e.ErrorMsg)
 	}
-	return fmt.Sprintf("codearts api error [%d %s]: %s",
-		e.StatusCode, e.Status, string(e.Body))
+	// Truncate raw body to avoid flooding the terminal with HTML error pages.
+	body := string(e.Body)
+	if len(body) > 500 {
+		body = body[:500] + "... (truncated)"
+	}
+	hint := ""
+	if e.StatusCode == 401 {
+		hint = "\nhint: check AK/SK with `codearts-cli config show`, or re-run `codearts-cli config init`"
+	} else if e.StatusCode == 403 {
+		hint = "\nhint: check IAM permissions for this AK/SK"
+	}
+	return fmt.Sprintf("codearts api error [%d]: %s%s", e.StatusCode, body, hint)
 }
 
 // PipelineEndpoint returns the cloudpipeline host for the configured region.
@@ -121,7 +131,10 @@ func (c *Client) Do(ctx context.Context, method, endpoint, path string, query ur
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("send request: %w", err)
+		if os.IsTimeout(err) {
+			return fmt.Errorf("request timed out (30s) to %s: check network connectivity and region (%s)", endpoint, c.cfg.Region)
+		}
+		return fmt.Errorf("send request to %s: %w — check network and region (%s)", endpoint, err, c.cfg.Region)
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
@@ -142,7 +155,11 @@ func (c *Client) Do(ctx context.Context, method, endpoint, path string, query ur
 
 	if out != nil && len(respBody) > 0 {
 		if err := json.Unmarshal(respBody, out); err != nil {
-			return fmt.Errorf("decode response: %w", err)
+			preview := string(respBody)
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
+			}
+			return fmt.Errorf("decode response (status %d): %w\nraw: %s", resp.StatusCode, err, preview)
 		}
 	}
 	return nil
