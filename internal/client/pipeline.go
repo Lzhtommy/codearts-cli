@@ -76,6 +76,46 @@ func (c *Client) RunPipeline(ctx context.Context, projectID, pipelineID string, 
 	return out, nil
 }
 
+// ----- ListPipelines -----
+//
+// Reference: https://support.huaweicloud.com/api-pipeline/ListPipelines.html
+// Endpoint:  POST /v5/{project_id}/api/pipelines/list
+
+// ListPipelinesRequest models the body for listing pipelines in a project.
+// All fields are optional; an empty body lists everything at the API's
+// default page size.
+type ListPipelinesRequest struct {
+	ProjectID  string   `json:"project_id,omitempty"`
+	ProjectIDs []string `json:"project_ids,omitempty"`
+	Name       string   `json:"name,omitempty"`
+	Status     []string `json:"status,omitempty"`
+	CreatorIDs []string `json:"creator_ids,omitempty"`
+	ExecutorIDs []string `json:"executor_ids,omitempty"`
+	StartTime  string   `json:"start_time,omitempty"`
+	EndTime    string   `json:"end_time,omitempty"`
+	Offset     int      `json:"offset,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
+	SortKey    string   `json:"sort_key,omitempty"`
+	SortDir    string   `json:"sort_dir,omitempty"`
+}
+
+// ListPipelines queries pipelines in a project.
+func (c *Client) ListPipelines(ctx context.Context, projectID string, body *ListPipelinesRequest) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	path := fmt.Sprintf("/v5/%s/api/pipelines/list", projectID)
+	var req interface{} = map[string]interface{}{}
+	if body != nil {
+		req = body
+	}
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "POST", c.PipelineEndpoint(), path, nil, req, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StopPipelineRun stops a running pipeline instance.
 //
 // Reference: https://support.huaweicloud.com/api-pipeline/StopPipelineRun.html

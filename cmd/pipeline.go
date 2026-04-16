@@ -20,9 +20,118 @@ func newPipelineCmd() *cobra.Command {
 		Use:   "pipeline",
 		Short: "CodeArts pipeline operations",
 	}
+	cmd.AddCommand(newPipelineListCmd())
 	cmd.AddCommand(newPipelineRunCmd())
 	cmd.AddCommand(newPipelineStopCmd())
 	return cmd
+}
+
+// ------------------------------ pipeline list ------------------------------
+
+type pipelineListOpts struct {
+	projectID   string
+	name        string
+	status      []string
+	creatorIDs  []string
+	executorIDs []string
+	startTime   string
+	endTime     string
+	offset      int
+	limit       int
+	sortKey     string
+	sortDir     string
+	dryRun      bool
+}
+
+func newPipelineListCmd() *cobra.Command {
+	o := &pipelineListOpts{}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List pipelines in a project (ListPipelines API)",
+		Long: `List pipelines in a CodeArts project.
+
+--project-id is required. It is used both as the URL path parameter and
+automatically injected into the body's project_ids array, per the API spec.
+
+EXAMPLES:
+    # List all pipelines
+    codearts-cli pipeline list --project-id <proj>
+
+    # Filter by name
+    codearts-cli pipeline list --project-id <proj> --name "deploy"
+
+    # Paginate
+    codearts-cli pipeline list --project-id <proj> --offset 0 --limit 20
+
+API reference: https://support.huaweicloud.com/api-pipeline/ListPipelines.html`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPipelineList(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) Huawei Cloud project_id")
+	cmd.Flags().StringVar(&o.name, "name", "", "Filter by pipeline name (fuzzy match)")
+	cmd.Flags().StringSliceVar(&o.status, "status", nil, "Filter by status (repeatable)")
+	cmd.Flags().StringSliceVar(&o.creatorIDs, "creator-id", nil, "Filter by creator user_id (repeatable)")
+	cmd.Flags().StringSliceVar(&o.executorIDs, "executor-id", nil, "Filter by executor user_id (repeatable)")
+	cmd.Flags().StringVar(&o.startTime, "start-time", "", "Filter: created after this time")
+	cmd.Flags().StringVar(&o.endTime, "end-time", "", "Filter: created before this time")
+	cmd.Flags().IntVar(&o.offset, "offset", 0, "Pagination offset (default 0)")
+	cmd.Flags().IntVar(&o.limit, "limit", 0, "Pagination limit (0 = API default)")
+	cmd.Flags().StringVar(&o.sortKey, "sort-key", "", "Sort field")
+	cmd.Flags().StringVar(&o.sortDir, "sort-dir", "", "Sort direction: asc / desc")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runPipelineList(cmd *cobra.Command, o *pipelineListOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := o.projectID
+	if projectID == "" {
+		return fmt.Errorf("--project-id is required for pipeline commands")
+	}
+
+	body := &client.ListPipelinesRequest{
+		// Per API spec and user requirement: project_id in path AND in body.
+		ProjectID:   projectID,
+		ProjectIDs:  []string{projectID},
+		Name:        o.name,
+		Status:      o.status,
+		CreatorIDs:  o.creatorIDs,
+		ExecutorIDs: o.executorIDs,
+		StartTime:   o.startTime,
+		EndTime:     o.endTime,
+		Offset:      o.offset,
+		Limit:       o.limit,
+		SortKey:     o.sortKey,
+		SortDir:     o.sortDir,
+	}
+
+	if o.dryRun {
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":     "POST",
+			"project_id": projectID,
+			"path":       fmt.Sprintf("/v5/%s/api/pipelines/list", projectID),
+			"region":     cfg.Region,
+			"body":       body,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListPipelines(context.Background(), projectID, body)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 // ------------------------------ pipeline stop ------------------------------
