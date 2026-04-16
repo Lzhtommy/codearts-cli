@@ -13,13 +13,41 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../codearts-shared/SKILL.md`](../codearts-shared/SKILL.md) 了解配置与认证。**
 
-CodeArts 代码托管模块。
+CodeArts 代码托管模块。`--project-id` 在所有 repo 命令中是**必填**的（不从 config 兜底）。
+
+### 从 git remote 自动提取 project-id
+
+当用户在一个 CodeArts Repo 克隆的仓库目录下操作时，可以从 `git remote -v` 的 URL 中提取 project-id，避免手动输入：
+
+```
+git@codehub-cn-south-1.devcloud.huaweicloud.com:759278abbfb14b098eeddc548741f38b/nest-app-agent.git
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                 这就是 project-id
+```
+
+**提取方式**（Agent 应自动执行）：
+
+```bash
+PROJECT_ID=$(git remote -v | grep codehub | head -1 | sed 's/.*:\([a-f0-9]\{32\}\)\/.*/\1/')
+```
+
+HTTPS 格式同理：
+
+```
+https://codehub-cn-south-1.devcloud.huaweicloud.com/759278abbfb14b098eeddc548741f38b/nest-app-agent.git
+```
+
+```bash
+PROJECT_ID=$(git remote -v | grep codehub | head -1 | grep -oE '[a-f0-9]{32}' | head -1)
+```
+
+提取后直接传给 `--project-id $PROJECT_ID`。如果 `git remote -v` 中没有 `codehub` 的 URL，则需要用户手动提供。
 
 ## 命令
 
 ### repo list
 
-查询项目下的仓库列表。`--project-id` 可选，省略时从 config 兜底。
+查询项目下的仓库列表。`--project-id` 必填（可从 `git remote -v` 自动提取）。
 
 ```bash
 # 列出所有仓库
@@ -36,7 +64,7 @@ codearts-cli repo list --project-id <project_uuid> --page-index 2 --page-size 10
 
 | Flag | 说明 |
 | --- | --- |
-| `--project-id` | 项目 UUID（可从 config 兜底） |
+| `--project-id`（必填） | 项目 UUID（从 `git remote -v` 提取或手动传入） |
 | `--search` | 按仓库名或创建人名搜索 |
 | `--page-index` | 页码（1-based，0 = 默认第 1 页） |
 | `--page-size` | 每页条数（1-100，默认 20） |

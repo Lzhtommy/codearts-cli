@@ -78,7 +78,7 @@ API reference: https://support.huaweicloud.com/api-codeartsrepo/ShowAllRepositor
 			return runRepoList(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) CodeArts project UUID")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) CodeArts project UUID (extract from git remote URL)")
 	cmd.Flags().IntVar(&o.pageIndex, "page-index", 0, "Page number (1-based, 0 = API default)")
 	cmd.Flags().IntVar(&o.pageSize, "page-size", 0, "Results per page (1-100, 0 = API default 20)")
 	cmd.Flags().StringVar(&o.search, "search", "", "Search by repo name or creator name")
@@ -96,11 +96,7 @@ func runRepoList(cmd *cobra.Command, o *repoListOpts) error {
 	}
 	projectID := o.projectID
 	if projectID == "" {
-		// repo list uses project UUID in path — fall back to config like issue commands.
-		projectID = cfg.ProjectID
-	}
-	if projectID == "" {
-		return fmt.Errorf("--project-id is required")
+		return fmt.Errorf("--project-id is required for repo commands")
 	}
 	if o.dryRun {
 		q := map[string]interface{}{}

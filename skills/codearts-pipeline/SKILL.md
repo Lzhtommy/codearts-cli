@@ -15,6 +15,24 @@ metadata:
 
 CodeArts 流水线模块。`--project-id` 在所有 pipeline 命令中是**必填**的（不从 config 兜底）。
 
+### 从 git remote 自动提取 project-id
+
+当用户在一个 CodeArts Repo 克隆的仓库目录下操作时，可以从 `git remote -v` 的 URL 中提取 project-id，避免手动输入：
+
+```
+git@codehub-cn-south-1.devcloud.huaweicloud.com:759278abbfb14b098eeddc548741f38b/nest-app-agent.git
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                 这就是 project-id
+```
+
+**提取方式**（Agent 应自动执行）：
+
+```bash
+PROJECT_ID=$(git remote -v | grep codehub | head -1 | sed 's/.*:\([a-f0-9]\{32\}\)\/.*/\1/')
+```
+
+提取后直接传给 `--project-id $PROJECT_ID`。如果 `git remote -v` 中没有 `codehub` 开头的 URL，则需要用户手动提供。
+
 ## 命令
 
 ### pipeline list
