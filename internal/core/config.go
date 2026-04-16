@@ -136,12 +136,12 @@ func Save(cfg *Config) error {
 // Redacted returns a copy of the config with secrets masked, safe to print.
 func Redacted(cfg *Config) *Config {
 	c := *cfg
-	c.AK = maskLeft(c.AK, 4)
+	c.AK = MaskLeft(c.AK, 4)
 	c.SK = "****"
 	return &c
 }
 
-func maskLeft(s string, keep int) string {
+func MaskLeft(s string, keep int) string {
 	if len(s) <= keep {
 		return "****"
 	}

@@ -321,7 +321,7 @@ func runPipelineRun(cmd *cobra.Command, o *pipelineRunOpts) error {
 // avoid ambiguous merges.
 func buildRunBody(o *pipelineRunOpts) (*client.RunPipelineRequest, error) {
 	// Full-body path
-	rawBody, err := firstNonEmpty("--body", o.bodyJSON, "--body-file", o.bodyFile)
+	rawBody, err := FirstNonEmpty("--body", o.bodyJSON, "--body-file", o.bodyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func buildRunBody(o *pipelineRunOpts) (*client.RunPipelineRequest, error) {
 		ChooseStages: o.chooseStages,
 	}
 
-	srcRaw, err := firstNonEmpty("--sources", o.sourcesJSON, "--sources-file", o.sourcesFile)
+	srcRaw, err := FirstNonEmpty("--sources", o.sourcesJSON, "--sources-file", o.sourcesFile)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,7 @@ func buildRunBody(o *pipelineRunOpts) (*client.RunPipelineRequest, error) {
 		}
 	}
 
-	varRaw, err := firstNonEmpty("--variables", o.varsJSON, "--variables-file", o.varsFile)
+	varRaw, err := FirstNonEmpty("--variables", o.varsJSON, "--variables-file", o.varsFile)
 	if err != nil {
 		return nil, err
 	}
@@ -369,10 +369,10 @@ func buildRunBody(o *pipelineRunOpts) (*client.RunPipelineRequest, error) {
 	return req, nil
 }
 
-// firstNonEmpty returns the value of the first non-empty input (inline JSON
+// FirstNonEmpty returns the value of the first non-empty input (inline JSON
 // or file). It errors when both are supplied simultaneously for the same
 // logical input.
-func firstNonEmpty(inlineName, inline, fileName, file string) (string, error) {
+func FirstNonEmpty(inlineName, inline, fileName, file string) (string, error) {
 	if inline != "" && file != "" {
 		return "", fmt.Errorf("%s and %s are mutually exclusive — pass only one", inlineName, fileName)
 	}

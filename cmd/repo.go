@@ -14,13 +14,13 @@ import (
 	"github.com/Lzhtommy/codearts-cli/internal/output"
 )
 
-// parseRepoID rejects anything that isn't a pure positive integer (no
+// ParseRepoID rejects anything that isn't a pure positive integer (no
 // hex, no leading signs, no whitespace). Earlier this used fmt.Sscanf
 // which silently truncated UUIDs to their leading digit run — e.g. the
 // UUID "759278ab..." quietly parsed as 759278. That would quietly send
 // the request to the wrong repository, so we reject non-numeric input
 // up-front.
-func parseRepoID(raw string) (int, error) {
+func ParseRepoID(raw string) (int, error) {
 	v, err := strconv.Atoi(raw)
 	if err != nil || v <= 0 {
 		return 0, fmt.Errorf(
@@ -192,7 +192,7 @@ Or pass the whole JSON body:
 API reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			v, err := parseRepoID(args[0])
+			v, err := ParseRepoID(args[0])
 			if err != nil {
 				return err
 			}
@@ -231,7 +231,7 @@ func runMRCreate(cmd *cobra.Command, o *mrCreateOpts) error {
 	}
 
 	var body interface{}
-	rawBody, err := firstNonEmpty("--body-json", o.bodyJSON, "--body-file", o.bodyFile)
+	rawBody, err := FirstNonEmpty("--body-json", o.bodyJSON, "--body-file", o.bodyFile)
 	if err != nil {
 		return err
 	}
@@ -332,7 +332,7 @@ etc.), pass --body-file with the full JSON.
 API reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequestDiscussion.html`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			v, err := parseRepoID(args[0])
+			v, err := ParseRepoID(args[0])
 			if err != nil {
 				return err
 			}
@@ -368,7 +368,7 @@ func runMRComment(cmd *cobra.Command, o *mrCommentOpts) error {
 	}
 
 	var body interface{}
-	rawBody, err := firstNonEmpty("--body-json", o.bodyJSON, "--body-file", o.bodyFile)
+	rawBody, err := FirstNonEmpty("--body-json", o.bodyJSON, "--body-file", o.bodyFile)
 	if err != nil {
 		return err
 	}

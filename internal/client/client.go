@@ -46,20 +46,19 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
-	if e.ErrorCode != "" || e.ErrorMsg != "" {
-		return fmt.Sprintf("codearts api error [%d]: %s — %s",
-			e.StatusCode, e.ErrorCode, e.ErrorMsg)
-	}
-	// Truncate raw body to avoid flooding the terminal with HTML error pages.
-	body := string(e.Body)
-	if len(body) > 500 {
-		body = body[:500] + "... (truncated)"
-	}
 	hint := ""
 	if e.StatusCode == 401 {
 		hint = "\nhint: check AK/SK with `codearts-cli config show`, or re-run `codearts-cli config init`"
 	} else if e.StatusCode == 403 {
 		hint = "\nhint: check IAM permissions for this AK/SK"
+	}
+	if e.ErrorCode != "" || e.ErrorMsg != "" {
+		return fmt.Sprintf("codearts api error [%d]: %s — %s%s",
+			e.StatusCode, e.ErrorCode, e.ErrorMsg, hint)
+	}
+	body := string(e.Body)
+	if len(body) > 500 {
+		body = body[:500] + "... (truncated)"
 	}
 	return fmt.Sprintf("codearts api error [%d]: %s%s", e.StatusCode, body, hint)
 }

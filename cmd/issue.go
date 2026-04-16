@@ -88,7 +88,7 @@ func runIssueList(cmd *cobra.Command, o *issueListOpts) error {
 	body := &client.ListIssuesRequest{
 		FilterMode: o.filterMode,
 	}
-	rawFilter, err := firstNonEmpty("--filter", o.filterJSON, "--filter-file", o.filterFile)
+	rawFilter, err := FirstNonEmpty("--filter", o.filterJSON, "--filter-file", o.filterFile)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func runIssueCreate(cmd *cobra.Command, o *issueCreateOpts) error {
 	}
 
 	var body interface{}
-	rawBody, err := firstNonEmpty("--body", o.bodyJSON, "--body-file", o.bodyFile)
+	rawBody, err := FirstNonEmpty("--body", o.bodyJSON, "--body-file", o.bodyFile)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func runIssueCreate(cmd *cobra.Command, o *issueCreateOpts) error {
 		return err
 	}
 	// Extract issue ID from response for a more actionable success message.
-	issueID := extractStringFromResp(resp, "id")
+	issueID := ExtractStringFromResp(resp, "id")
 	if issueID != "" {
 		output.Successf(cmd.ErrOrStderr(), "Issue created (id: %s)", issueID)
 	} else {
@@ -331,9 +331,9 @@ func runIssueCreate(cmd *cobra.Command, o *issueCreateOpts) error {
 	return nil
 }
 
-// extractStringFromResp tries to pull a named field out of the standard
+// ExtractStringFromResp tries to pull a named field out of the standard
 // Huawei envelope: {"result": [{"id": "..."}]} or {"result": {"id": "..."}}.
-func extractStringFromResp(resp map[string]interface{}, key string) string {
+func ExtractStringFromResp(resp map[string]interface{}, key string) string {
 	if v, ok := resp[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -419,7 +419,7 @@ func runIssueBatchUpdate(cmd *cobra.Command, o *issueBatchOpts) error {
 		}
 	}
 	attr := map[string]interface{}{}
-	rawAttr, err := firstNonEmpty("--attribute", o.attribute, "--attribute-file", o.attributeFile)
+	rawAttr, err := FirstNonEmpty("--attribute", o.attribute, "--attribute-file", o.attributeFile)
 	if err != nil {
 		return err
 	}

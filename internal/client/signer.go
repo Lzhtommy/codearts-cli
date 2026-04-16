@@ -29,10 +29,10 @@ type Signer struct {
 }
 
 const (
-	algorithm       = "SDK-HMAC-SHA256"
+	Algorithm       = "SDK-HMAC-SHA256"
 	sdkDateHeader   = "X-Sdk-Date"
 	sdkDateLayout   = "20060102T150405Z"
-	emptyBodySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	EmptyBodySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 )
 
 // Sign mutates req by adding Host, X-Sdk-Date and Authorization headers.
@@ -53,39 +53,39 @@ func (s *Signer) Sign(req *http.Request, body []byte) error {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	payloadHash := hashHex(body)
-	signedHeaders, canonicalHeaders := canonicalHeaders(req)
+	payloadHash := HashHex(body)
+	signedHeaders, canonicalHeaders := CanonicalHeaders(req)
 	canonicalRequest := strings.Join([]string{
 		req.Method,
-		canonicalURI(req.URL),
-		canonicalQuery(req.URL),
+		CanonicalURI(req.URL),
+		CanonicalQuery(req.URL),
 		canonicalHeaders,
 		signedHeaders,
 		payloadHash,
 	}, "\n")
 
 	stringToSign := strings.Join([]string{
-		algorithm,
+		Algorithm,
 		now,
-		hashHex([]byte(canonicalRequest)),
+		HashHex([]byte(canonicalRequest)),
 	}, "\n")
 
-	sig := hmacHex(s.SK, stringToSign)
+	sig := HmacHex(s.SK, stringToSign)
 	auth := fmt.Sprintf("%s Access=%s, SignedHeaders=%s, Signature=%s",
-		algorithm, s.AK, signedHeaders, sig)
+		Algorithm, s.AK, signedHeaders, sig)
 	req.Header.Set("Authorization", auth)
 	return nil
 }
 
-func hashHex(b []byte) string {
+func HashHex(b []byte) string {
 	if len(b) == 0 {
-		return emptyBodySHA256
+		return EmptyBodySHA256
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
 
-func hmacHex(key, msg string) string {
+func HmacHex(key, msg string) string {
 	mac := hmac.New(sha256.New, []byte(key))
 	mac.Write([]byte(msg))
 	return hex.EncodeToString(mac.Sum(nil))
@@ -99,7 +99,7 @@ func hmacHex(key, msg string) string {
 // request path does not (e.g. `/v5/.../run` becomes `/v5/.../run/` for
 // hashing purposes). The on-the-wire request path is NOT modified —
 // only the value fed into the canonical request string is.
-func canonicalURI(u *url.URL) string {
+func CanonicalURI(u *url.URL) string {
 	p := u.EscapedPath()
 	if p == "" {
 		return "/"
@@ -112,7 +112,7 @@ func canonicalURI(u *url.URL) string {
 
 // canonicalQuery returns the query string with keys sorted and both keys
 // and values percent-encoded.
-func canonicalQuery(u *url.URL) string {
+func CanonicalQuery(u *url.URL) string {
 	if u.RawQuery == "" {
 		return ""
 	}
@@ -142,7 +142,7 @@ func canonicalQuery(u *url.URL) string {
 
 // canonicalHeaders returns (signedHeaders, canonicalHeaderBlock) per the
 // Huawei signing spec. All request headers are signed.
-func canonicalHeaders(req *http.Request) (string, string) {
+func CanonicalHeaders(req *http.Request) (string, string) {
 	type kv struct{ k, v string }
 	headers := make([]kv, 0, len(req.Header)+1)
 	// Ensure Host is present even if http.Request tracks it separately.
