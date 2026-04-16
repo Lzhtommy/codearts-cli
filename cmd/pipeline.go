@@ -52,7 +52,7 @@ API reference: https://support.huaweicloud.com/api-pipeline/StopPipelineRun.html
 			return runPipelineStop(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) Huawei Cloud project_id")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit without calling the API")
 	return cmd
 }
@@ -65,9 +65,9 @@ func runPipelineStop(cmd *cobra.Command, o *pipelineStopOpts) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	projectID := cfg.ProjectID
-	if o.projectID != "" {
-		projectID = o.projectID
+	projectID := o.projectID
+	if projectID == "" {
+		return fmt.Errorf("--project-id is required for pipeline commands")
 	}
 	if o.dryRun {
 		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
@@ -143,7 +143,7 @@ API reference: https://support.huaweicloud.com/api-pipeline/RunPipeline.html`,
 			return runPipelineRun(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) Huawei Cloud project_id")
 	cmd.Flags().StringVar(&o.sourcesJSON, "sources", "", "JSON array of source overrides")
 	cmd.Flags().StringVar(&o.sourcesFile, "sources-file", "", "Path to a JSON file containing the sources array")
 	cmd.Flags().StringVar(&o.varsJSON, "variables", "", "JSON array of {name,value} variable overrides")
@@ -166,9 +166,9 @@ func runPipelineRun(cmd *cobra.Command, o *pipelineRunOpts) error {
 		return err
 	}
 
-	projectID := cfg.ProjectID
-	if o.projectID != "" {
-		projectID = o.projectID
+	projectID := o.projectID
+	if projectID == "" {
+		return fmt.Errorf("--project-id is required for pipeline commands")
 	}
 
 	body, err := buildRunBody(o)

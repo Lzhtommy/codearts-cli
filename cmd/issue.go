@@ -58,7 +58,7 @@ API reference: https://support.huaweicloud.com/api-projectman/ListIpdProjectIssu
 			return runIssueList(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringVar(&o.issueType, "issue-type", "", "(required) issue type(s), comma-separated")
 	cmd.Flags().StringVar(&o.filterJSON, "filter", "", "JSON array of filter conditions")
 	cmd.Flags().StringVar(&o.filterFile, "filter-file", "", "Path to a JSON file containing the filter array")
@@ -151,7 +151,7 @@ API reference: https://support.huaweicloud.com/api-projectman/ShowIssueDetail.ht
 			return runIssueShow(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringVar(&o.issueType, "issue-type", "", "(required) issue type, e.g. US")
 	cmd.Flags().StringVar(&o.domainID, "domain-id", "", "Domain ID (optional)")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
@@ -230,7 +230,7 @@ API reference: https://support.huaweicloud.com/api-projectman/CreateIpdProjectIs
 			return runIssueCreate(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringVar(&o.title, "title", "", "Issue title (max 256 chars)")
 	cmd.Flags().StringVar(&o.description, "description", "", "Issue description")
 	cmd.Flags().StringVar(&o.category, "category", "", "Issue category (RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE)")
@@ -349,7 +349,7 @@ API reference: https://support.huaweicloud.com/api-projectman/BatchUpdateIpdIssu
 			return runIssueBatchUpdate(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id")
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringSliceVar(&o.ids, "id", nil, "Issue ID to update (repeatable)")
 	cmd.Flags().StringVar(&o.category, "category", "", "Target category (required unless present in --attribute)")
 	cmd.Flags().StringVar(&o.attribute, "attribute", "", "JSON object of attributes to set")
