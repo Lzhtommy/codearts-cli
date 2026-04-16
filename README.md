@@ -4,31 +4,33 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
 [![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
 
-华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管三大模块共 8 个接口，配套 4 个 AI Agent [Skills](./skills/)。
+华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管三大模块共 10 个接口，配套 4 个 AI Agent [Skills](./skills/)。
 
-[安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [架构](#项目结构) · [贡献](#贡献)
+[安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [测试](#测试) · [架构](#项目结构) · [贡献](#贡献)
 
 ## 为什么用 codearts-cli？
 
 - **Agent-Native 设计** — 4 个结构化 [Skills](./skills/)，兼容 Claude Code / Cursor / Codex / Gemini CLI 等主流 AI 工具
 - **轻量零依赖** — 不引入 huaweicloud-sdk-go-v3（几十 MB），自研 AK/SK 签名（SDK-HMAC-SHA256），单一二进制 ~3 MB
-- **三模块八接口** — 流水线、工作项、代码托管，一条命令触发 CI/CD、管理 Bug、创建 MR
+- **三模块十接口** — 流水线、工作项、代码托管，一条命令触发 CI/CD、管理 Bug、创建 MR
 - **Debug 友好** — 所有命令支持 `--dry-run`，预览 method / path / body 不发请求
 - **安全可控** — AK/SK 存储 `0600` 权限，`config show` 自动脱敏，CI 场景用 `--sk-stdin` 防泄露
 - **开源即用** — MIT 协议，`npm install` 一行安装
 
 ## 功能概览
 
-| 模块       | 命令                 | API                          | 说明                     |
-| ---------- | -------------------- | ---------------------------- | ------------------------ |
-| 🚀 流水线  | `pipeline run`       | RunPipeline                  | 触发流水线               |
-| 🚀 流水线  | `pipeline stop`      | StopPipelineRun              | 停止流水线实例           |
-| 📋 工作项  | `issue list`         | ListIpdProjectIssues         | 查询工作项列表           |
-| 📋 工作项  | `issue show`         | ShowIssueDetail              | 查询工作项详情           |
-| 📋 工作项  | `issue create`       | CreateIpdProjectIssue        | 创建工作项               |
-| 📋 工作项  | `issue batch-update` | BatchUpdateIpdIssues         | 批量更新工作项           |
-| 🔀 代码托管 | `repo mr create`     | CreateMergeRequest           | 创建合并请求             |
-| 🔀 代码托管 | `repo mr comment`    | CreateMergeRequestDiscussion | 创建 MR 检视意见         |
+| 模块       | 命令                 | API                                | 说明                     |
+| ---------- | -------------------- | ---------------------------------- | ------------------------ |
+| 🚀 流水线  | `pipeline list`      | ListPipelines                      | 查询流水线列表           |
+| 🚀 流水线  | `pipeline run`       | RunPipeline                        | 触发流水线               |
+| 🚀 流水线  | `pipeline stop`      | StopPipelineRun                    | 停止流水线实例           |
+| 📋 工作项  | `issue list`         | ListIpdProjectIssues               | 查询工作项列表           |
+| 📋 工作项  | `issue show`         | ShowIssueDetail                    | 查询工作项详情           |
+| 📋 工作项  | `issue create`       | CreateIpdProjectIssue              | 创建工作项               |
+| 📋 工作项  | `issue batch-update` | BatchUpdateIpdIssues               | 批量更新工作项           |
+| 🔀 代码托管 | `repo list`          | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
+| 🔀 代码托管 | `repo mr create`     | CreateMergeRequest                 | 创建合并请求             |
+| 🔀 代码托管 | `repo mr comment`    | CreateMergeRequestDiscussion       | 创建 MR 检视意见         |
 
 ## 安装
 
@@ -119,9 +121,9 @@ codearts-cli issue list --issue-type Bug --dry-run
 | Skill                | 说明                                                                              |
 | -------------------- | --------------------------------------------------------------------------------- |
 | `codearts-shared`    | 配置初始化、凭证管理、通用标志、端点解析、错误处理（被其它 skill 自动引用）       |
-| `codearts-pipeline`  | 流水线启动 / 停止                                                                 |
+| `codearts-pipeline`  | 流水线列表 / 启动 / 停止                                                          |
 | `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新                                              |
-| `codearts-repo`      | MR 创建 / MR 检视意见                                                            |
+| `codearts-repo`      | 仓库列表 / MR 创建 / MR 检视意见                                                 |
 
 ```bash
 # 安装全部 skills
@@ -168,6 +170,26 @@ codearts-cli config path    # 打印配置文件绝对路径
 ## 命令速查
 
 ### 流水线
+
+#### `pipeline list` — 查询流水线列表
+
+```bash
+# 列出项目下所有流水线
+codearts-cli pipeline list --project-id <proj>
+
+# 按名称过滤 + 分页
+codearts-cli pipeline list --project-id <proj> --name "deploy" --limit 20
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--project-id`（必填） | 华为云项目 UUID |
+| `--name` | 按名称模糊匹配 |
+| `--status` | 按状态过滤（可重复） |
+| `--creator-id` / `--executor-id` | 按创建人/执行人过滤（可重复） |
+| `--offset` / `--limit` | 分页 |
+| `--sort-key` / `--sort-dir` | 排序（asc / desc） |
+| `--dry-run` | 预览请求 |
 
 #### `pipeline run <pipeline_id>` — 启动流水线
 
@@ -238,7 +260,24 @@ codearts-cli issue batch-update --id 111,222,333 --category Bug --attribute '{"p
 
 ### 代码托管
 
-> `<repository_id>` 必须是**正整数**（数字仓库 ID），不是 UUID。
+> `<repository_id>` 必须是**正整数**（数字仓库 ID），不是 UUID。可通过 `repo list` 获取。
+
+#### `repo list` — 查询仓库列表
+
+```bash
+# 列出项目下所有仓库（返回每个仓库的 repository_id）
+codearts-cli repo list --project-id <proj>
+
+# 按名称搜索
+codearts-cli repo list --project-id <proj> --search "backend"
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--project-id`（必填） | 项目 UUID（可从 `git remote -v` 提取） |
+| `--search` | 按仓库名或创建人搜索 |
+| `--page-index` / `--page-size` | 分页（默认 20 条/页） |
+| `--dry-run` | 预览请求 |
 
 #### `repo mr create <repo_id>` — 创建合并请求
 
@@ -289,7 +328,44 @@ codearts-cli issue create --title "x" --description "x" --category Bug --dry-run
 | ---------- | -------------- | ----------------------- |
 | 流水线     | **必填**       | 不读                    |
 | 工作项管理 | 可选覆盖       | 兜底                    |
-| 代码托管   | 不涉及         | 不涉及（走 repo_id）   |
+| 代码托管   | `repo list` 必填；`mr` 命令走 `repo_id` | `repo list` 不读 |
+
+> **提示**：在 CodeArts Repo 克隆的仓库目录下，可从 `git remote -v` 自动提取 project-id：
+> ```bash
+> PROJECT_ID=$(git remote -v | grep codehub | head -1 | grep -oE '[a-f0-9]{32}' | head -1)
+> ```
+
+## 测试
+
+单元测试集中在 `tests/` 目录下，按模块组织：
+
+```bash
+# 运行全部测试
+go test ./tests/...
+
+# 运行单个模块
+go test ./tests/client/    # 签名 + HTTP 客户端
+go test ./tests/core/      # 配置加载/保存/校验
+go test ./tests/output/    # JSON 输出格式
+go test ./tests/cmd/       # CLI 工具函数
+
+# 带详细输出
+go test ./tests/... -v
+
+# 跑完整项目（含 tests/）
+go test ./...
+```
+
+| 测试模块         | 文件                          | 用例数 | 覆盖点                                                            |
+| ---------------- | ----------------------------- | ------ | ------------------------------------------------------------------ |
+| `tests/client/`  | `signer_test.go`              | 11     | HashHex / HmacHex / CanonicalURI / CanonicalQuery / CanonicalHeaders / Sign |
+| `tests/client/`  | `client_test.go`              | 7      | Do 成功 / 400 / 401 hint / 500 raw / 空响应 / POST body / 缺凭证  |
+| `tests/core/`    | `config_test.go`              | 10     | Validate / Redacted / MaskLeft / Save+Load 往返 / 默认值 / 兼容性  |
+| `tests/output/`  | `output_test.go`              | 5      | PrintJSON / Successf / Errorf / DryRunf                            |
+| `tests/cmd/`     | `helpers_test.go`             | 14     | ParseRepoID / ExtractStringFromResp / FirstNonEmpty                |
+| **合计**         |                               | **47** |                                                                    |
+
+HTTP 测试使用 `httptest.Server` 模拟 API，文件 I/O 测试使用 `t.TempDir()` + 临时 `$HOME`，不依赖外部服务。
 
 ## 项目结构
 
@@ -307,12 +383,17 @@ codearts-cli/
 │   ├── codearts-pipeline/SKILL.md    # AI Skill: 流水线
 │   ├── codearts-issue/SKILL.md       # AI Skill: 工作项
 │   └── codearts-repo/SKILL.md        # AI Skill: 代码托管
+├── tests/
+│   ├── client/                       # 签名 + HTTP 客户端测试
+│   ├── core/                         # 配置测试
+│   ├── output/                       # 输出格式测试
+│   └── cmd/                          # CLI 工具函数测试
 ├── cmd/
 │   ├── root.go                       # 根命令
 │   ├── config.go                     # config init / show / path / set
-│   ├── pipeline.go                   # pipeline run / stop
+│   ├── pipeline.go                   # pipeline list / run / stop
 │   ├── issue.go                      # issue list / show / create / batch-update
-│   └── repo.go                       # repo mr create / comment
+│   └── repo.go                       # repo list / mr create / mr comment
 └── internal/
     ├── core/config.go                # 配置加载 / 保存（~/.codearts-cli/config.json）
     ├── client/
