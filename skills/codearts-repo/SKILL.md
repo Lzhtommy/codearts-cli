@@ -1,7 +1,7 @@
 ---
 name: codearts-repo
 version: 0.1.1
-description: "CodeArts 代码托管：创建合并请求（CreateMergeRequest）、创建 MR 检视意见（CreateMergeRequestDiscussion）。当用户需要创建 MR 或给 MR 发代码评审意见时使用。"
+description: "CodeArts 代码托管：查询仓库列表（ListRepositories）、创建合并请求（CreateMergeRequest）、创建 MR 检视意见（CreateMergeRequestDiscussion）。当用户需要查看仓库、创建 MR 或发代码评审意见时使用。"
 metadata:
   category: "devops"
   requires:
@@ -15,12 +15,43 @@ metadata:
 
 CodeArts 代码托管模块。
 
+## 命令
+
+### repo list
+
+查询项目下的仓库列表。`--project-id` 可选，省略时从 config 兜底。
+
+```bash
+# 列出所有仓库
+codearts-cli repo list --project-id <project_uuid>
+
+# 按名称搜索
+codearts-cli repo list --project-id <project_uuid> --search "backend"
+
+# 分页
+codearts-cli repo list --project-id <project_uuid> --page-index 2 --page-size 10
+```
+
+**API**: `GET /v2/projects/{project_uuid}/repositories`
+
+| Flag | 说明 |
+| --- | --- |
+| `--project-id` | 项目 UUID（可从 config 兜底） |
+| `--search` | 按仓库名或创建人名搜索 |
+| `--page-index` | 页码（1-based，0 = 默认第 1 页） |
+| `--page-size` | 每页条数（1-100，默认 20） |
+| `--dry-run` | 预览请求 |
+
+**返回值**：`result.repositories` 数组，每条包含 `repository_id`（**整数**，用于 MR 操作）、`repository_name`、`ssh_url`、`https_url`、`web_url`。
+
+> **关键**：`repo list` 返回的 `repository_id` 就是 `repo mr create` / `repo mr comment` 需要的参数。
+
 ## 重要：repository_id 是整数
 
 所有 repo 命令的 `<repository_id>` 必须是**正整数**（如 `8147520`），**不是** 32 位 UUID。
 
 - UUID 格式（如 `759278abbfb14b098eeddc548741f38b`）是 **project_id**，不是 repo_id
-- 获取 repo_id：CodeArts Repo 控制台 → 仓库设置 → 仓库 ID（数字）
+- 获取 repo_id：运行 `codearts-cli repo list --project-id <proj>`，或 CodeArts Repo 控制台 → 仓库设置 → 仓库 ID（数字）
 
 CLI 会**严格校验**：传入 UUID 会直接报错（不会静默截断）。
 
@@ -108,11 +139,15 @@ codearts-cli repo mr comment <repo_id> <mr_iid> --body-file review.json
 ## 典型工作流
 
 ```bash
-# 1. 创建 MR
+# 1. 查询仓库列表，获取 repository_id
+codearts-cli repo list --project-id <proj>
+#  → repository_id: 8147520, repository_name: "nest-app-agent"
+
+# 2. 创建 MR
 MR_IID=$(codearts-cli repo mr create 8147520 \
   --title "feat: x" --source feat/x --target main 2>/dev/null \
   | jq -r '.iid')
 
-# 2. 发检视意见
+# 3. 发检视意见
 codearts-cli repo mr comment 8147520 $MR_IID --body "请补单测" --severity minor
 ```
