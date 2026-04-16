@@ -36,8 +36,101 @@ func newRepoCmd() *cobra.Command {
 		Use:   "repo",
 		Short: "CodeArts Repo (code hosting) operations",
 	}
+	cmd.AddCommand(newRepoListCmd())
 	cmd.AddCommand(newRepoMRCmd())
 	return cmd
+}
+
+// ----------------------- repo list -----------------------
+
+type repoListOpts struct {
+	projectID string
+	pageIndex int
+	pageSize  int
+	search    string
+	dryRun    bool
+}
+
+func newRepoListCmd() *cobra.Command {
+	o := &repoListOpts{}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List repositories in a project (ShowAllRepositoryByTwoProjectId)",
+		Long: `List repositories in a CodeArts project.
+
+--project-id is required (32-char project UUID).
+
+The response includes each repo's numeric repository_id — use that for
+repo mr create / repo mr comment commands.
+
+EXAMPLES:
+    # List all repos
+    codearts-cli repo list --project-id <proj>
+
+    # Search by name
+    codearts-cli repo list --project-id <proj> --search "backend"
+
+    # Paginate
+    codearts-cli repo list --project-id <proj> --page-index 2 --page-size 10
+
+API reference: https://support.huaweicloud.com/api-codeartsrepo/ShowAllRepositoryByTwoProjectId.html`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepoList(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) CodeArts project UUID")
+	cmd.Flags().IntVar(&o.pageIndex, "page-index", 0, "Page number (1-based, 0 = API default)")
+	cmd.Flags().IntVar(&o.pageSize, "page-size", 0, "Results per page (1-100, 0 = API default 20)")
+	cmd.Flags().StringVar(&o.search, "search", "", "Search by repo name or creator name")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runRepoList(cmd *cobra.Command, o *repoListOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := o.projectID
+	if projectID == "" {
+		// repo list uses project UUID in path — fall back to config like issue commands.
+		projectID = cfg.ProjectID
+	}
+	if projectID == "" {
+		return fmt.Errorf("--project-id is required")
+	}
+	if o.dryRun {
+		q := map[string]interface{}{}
+		if o.pageIndex > 0 {
+			q["page_index"] = o.pageIndex
+		}
+		if o.pageSize > 0 {
+			q["page_size"] = o.pageSize
+		}
+		if o.search != "" {
+			q["search"] = o.search
+		}
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":     "GET",
+			"path":       fmt.Sprintf("/v2/projects/%s/repositories", projectID),
+			"project_id": projectID,
+			"query":      q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListRepositories(context.Background(), projectID, o.pageIndex, o.pageSize, o.search)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 func newRepoMRCmd() *cobra.Command {

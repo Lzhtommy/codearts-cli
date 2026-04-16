@@ -3,7 +3,34 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
+
+// ListRepositories queries repositories in a project.
+//
+// Reference: https://support.huaweicloud.com/api-codeartsrepo/ShowAllRepositoryByTwoProjectId.html
+// Endpoint:  GET /v2/projects/{project_uuid}/repositories?page_index=&page_size=&search=
+func (c *Client) ListRepositories(ctx context.Context, projectUUID string, pageIndex, pageSize int, search string) (map[string]interface{}, error) {
+	if projectUUID == "" {
+		return nil, fmt.Errorf("project_uuid is required")
+	}
+	path := fmt.Sprintf("/v2/projects/%s/repositories", projectUUID)
+	q := url.Values{}
+	if pageIndex > 0 {
+		q.Set("page_index", fmt.Sprintf("%d", pageIndex))
+	}
+	if pageSize > 0 {
+		q.Set("page_size", fmt.Sprintf("%d", pageSize))
+	}
+	if search != "" {
+		q.Set("search", search)
+	}
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.RepoEndpoint(), path, q, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
 // CreateMergeRequest creates a merge request on a repository.
 //
