@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autelrobotics/codearts-cli/internal/core"
+	"github.com/Lzhtommy/codearts-cli/internal/core"
 )
 
 // Client is a thin HTTP wrapper for Huawei Cloud CodeArts APIs with AK/SK

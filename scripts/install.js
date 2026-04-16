@@ -14,7 +14,7 @@ const { execSync } = require("child_process");
 const os = require("os");
 
 const VERSION = require("../package.json").version;
-const REPO = "autelrobotics/codearts-cli";
+const REPO = "Lzhtommy/codearts-cli";
 const NAME = "codearts-cli";
 
 const PLATFORM_MAP = {
@@ -114,7 +114,7 @@ try {
   console.error(
     `\nIf you are behind a firewall or in a restricted network, try:\n` +
     `  export https_proxy=http://your-proxy:port\n` +
-    `  npm install -g @autelrobotics/codearts-cli\n\n` +
+    `  npm install -g @Lzhtommy/codearts-cli\n\n` +
     `Or install from source:\n` +
     `  git clone https://github.com/${REPO}.git && cd ${NAME}\n` +
     `  make install PREFIX=$HOME/.local`

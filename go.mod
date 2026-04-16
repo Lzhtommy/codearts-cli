@@ -1,4 +1,4 @@
-module github.com/autelrobotics/codearts-cli
+module github.com/Lzhtommy/codearts-cli
 
 go 1.26.2
 

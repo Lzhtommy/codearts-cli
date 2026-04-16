@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/autelrobotics/codearts-cli/internal/client"
-	"github.com/autelrobotics/codearts-cli/internal/core"
-	"github.com/autelrobotics/codearts-cli/internal/output"
+	"github.com/Lzhtommy/codearts-cli/internal/client"
+	"github.com/Lzhtommy/codearts-cli/internal/core"
+	"github.com/Lzhtommy/codearts-cli/internal/output"
 )
 
 // parseRepoID rejects anything that isn't a pure positive integer (no
