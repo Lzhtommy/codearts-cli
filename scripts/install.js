@@ -114,7 +114,7 @@ try {
   console.error(
     `\nIf you are behind a firewall or in a restricted network, try:\n` +
     `  export https_proxy=http://your-proxy:port\n` +
-    `  npm install -g @anthropic/codearts-cli\n\n` +
+    `  npm install -g @autelrobotics/codearts-cli\n\n` +
     `Or install from source:\n` +
     `  git clone https://github.com/${REPO}.git && cd ${NAME}\n` +
     `  make install PREFIX=$HOME/.local`
