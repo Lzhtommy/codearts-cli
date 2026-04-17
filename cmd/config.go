@@ -140,6 +140,10 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 		if !interactive {
 			return errors.New("--ak is required when stdin is not a terminal")
 		}
+		if existing.AK == "" {
+			fmt.Fprintln(cmd.ErrOrStderr(), "Create an access key at:")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  https://console.huaweicloud.com/iam/?locale=zh-cn&agencyId=c6a86f92b833415fa2833b5762c6f5b0&region=cn-south-1#/mine/accessKey")
+		}
 		def := existing.AK
 		v, err := promptLine(cmd, reader, "Access Key (AK)", def, false)
 		if err != nil {
@@ -189,6 +193,10 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 		def := userID
 		if existing.UserID != "" {
 			def = existing.UserID
+		}
+		if existing.UserID == "" {
+			fmt.Fprintln(cmd.ErrOrStderr(), "Copy your IAM User ID from:")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  https://console.huaweicloud.com/iam/?locale=zh-cn&agencyId=c6a86f92b833415fa2833b5762c6f5b0&region=cn-south-1#/mine/apiCredential")
 		}
 		v, err := promptLine(cmd, reader, "User ID (IAM user_id, 32-char UUID; blank to skip)", def, true)
 		if err != nil {

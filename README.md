@@ -223,7 +223,7 @@ codearts-cli pipeline stop <pid> <run_id> --project-id <proj>
 
 ### 工作项管理
 
-`--project-id` 可选，省略时从 `config.json` 的 `projectId` 兜底。
+工作项命令统一使用 `config.json` 的 `projectId`，不支持 `--project-id`。若未配置，先执行 `codearts-cli config set projectId <uuid>`。
 
 #### `issue list` — 查询列表
 
@@ -327,7 +327,7 @@ codearts-cli issue create --title "x" --description "x" --category Bug --dry-run
 | 模块       | `--project-id` | config.json `projectId` |
 | ---------- | -------------- | ----------------------- |
 | 流水线     | **必填**       | 不读                    |
-| 工作项管理 | 可选覆盖       | 兜底                    |
+| 工作项管理 | 不支持         | **必读**                |
 | 代码托管   | `repo list` 必填；`mr` 命令走 `repo_id` | `repo list` 不读 |
 
 > **提示**：在 CodeArts Repo 克隆的仓库目录下，可从 `git remote -v` 自动提取 project-id：

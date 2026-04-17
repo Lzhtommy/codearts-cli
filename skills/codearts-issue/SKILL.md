@@ -13,7 +13,7 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../codearts-shared/SKILL.md`](../codearts-shared/SKILL.md) 了解配置与认证。**
 
-CodeArts ProjectMan 工作项（IPD）管理。`--project-id` 可选——省略时从 `config.json` 的 `projectId` 兜底。
+CodeArts ProjectMan 工作项（IPD）管理。**所有命令均使用 `config.json` 中的 `projectId`**——若未配置，先执行 `codearts-cli config set projectId <uuid>`。
 
 ## issue_type 取值
 
@@ -53,7 +53,6 @@ codearts-cli issue list --issue-type Bug --sort-field created_date --sort-asc
 | `--filter-mode` | `AND_OR`（默认）/ `OR_AND` |
 | `--page-no` / `--page-size` | 分页（0 = API 默认） |
 | `--sort-field` / `--sort-asc` | 排序字段与方向 |
-| `--project-id` | 覆盖 config 的默认值 |
 | `--dry-run` | 预览请求 |
 
 ### issue show
@@ -70,7 +69,6 @@ codearts-cli issue show <issue_id> --issue-type US
 | --- | --- |
 | `--issue-type`（必填） | 工作项类型 |
 | `--domain-id` | 可选 |
-| `--project-id` | 覆盖 config |
 | `--dry-run` | 预览请求 |
 
 ### issue create
@@ -105,7 +103,6 @@ codearts-cli issue create --body-file issue.json
 | `--assignee` | user_id UUID；省略时从 config `userId` 取 |
 | `--status` / `--priority` | 可选 |
 | `--body` / `--body-file` | 完整 JSON（覆盖上面所有 flag） |
-| `--project-id` | 覆盖 config |
 | `--dry-run` | 预览请求 |
 
 *使用 `--body` / `--body-file` 时不需要这些 flag。
@@ -129,7 +126,6 @@ codearts-cli issue batch-update \
 | `--id`（必填） | issue ID，可重复或逗号分隔 |
 | `--category`（必填*） | 目标工作项类型 |
 | `--attribute` / `--attribute-file` | JSON 对象：要更新的属性 |
-| `--project-id` | 覆盖 config |
 | `--dry-run` | 预览请求 |
 
 *category 也可在 `--attribute` JSON 中提供。

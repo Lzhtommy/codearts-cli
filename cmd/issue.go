@@ -28,7 +28,6 @@ func newIssueCmd() *cobra.Command {
 // ----------------------- issue list -----------------------
 
 type issueListOpts struct {
-	projectID  string
 	issueType  string
 	filterJSON string
 	filterFile string
@@ -58,7 +57,6 @@ API reference: https://support.huaweicloud.com/api-projectman/ListIpdProjectIssu
 			return runIssueList(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringVar(&o.issueType, "issue-type", "", "(required) issue type(s), comma-separated")
 	cmd.Flags().StringVar(&o.filterJSON, "filter", "", "JSON array of filter conditions")
 	cmd.Flags().StringVar(&o.filterFile, "filter-file", "", "Path to a JSON file containing the filter array")
@@ -81,8 +79,8 @@ func runIssueList(cmd *cobra.Command, o *issueListOpts) error {
 		return err
 	}
 	projectID := cfg.ProjectID
-	if o.projectID != "" {
-		projectID = o.projectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
 	}
 
 	body := &client.ListIssuesRequest{
@@ -130,7 +128,6 @@ func runIssueList(cmd *cobra.Command, o *issueListOpts) error {
 // ----------------------- issue show -----------------------
 
 type issueShowOpts struct {
-	projectID string
 	issueID   string
 	issueType string
 	domainID  string
@@ -152,7 +149,6 @@ API reference: https://support.huaweicloud.com/api-projectman/ShowIssueDetail.ht
 			return runIssueShow(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringVar(&o.issueType, "issue-type", "", "(required) issue type, e.g. US")
 	cmd.Flags().StringVar(&o.domainID, "domain-id", "", "Domain ID (optional)")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
@@ -169,8 +165,8 @@ func runIssueShow(cmd *cobra.Command, o *issueShowOpts) error {
 		return err
 	}
 	projectID := cfg.ProjectID
-	if o.projectID != "" {
-		projectID = o.projectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
 	}
 	if o.dryRun {
 		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
@@ -202,7 +198,6 @@ func runIssueShow(cmd *cobra.Command, o *issueShowOpts) error {
 // ----------------------- issue create -----------------------
 
 type issueCreateOpts struct {
-	projectID   string
 	title       string
 	description string
 	category    string
@@ -232,7 +227,6 @@ API reference: https://support.huaweicloud.com/api-projectman/CreateIpdProjectIs
 			return runIssueCreate(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringVar(&o.title, "title", "", "Issue title (max 256 chars)")
 	cmd.Flags().StringVar(&o.description, "description", "", "Issue description")
 	cmd.Flags().StringVar(&o.category, "category", "", "Issue category (RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE)")
@@ -254,8 +248,8 @@ func runIssueCreate(cmd *cobra.Command, o *issueCreateOpts) error {
 		return err
 	}
 	projectID := cfg.ProjectID
-	if o.projectID != "" {
-		projectID = o.projectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
 	}
 
 	var body interface{}
@@ -360,7 +354,6 @@ func ExtractStringFromResp(resp map[string]interface{}, key string) string {
 // ----------------------- issue batch-update -----------------------
 
 type issueBatchOpts struct {
-	projectID    string
 	ids          []string
 	category     string
 	attribute    string
@@ -384,7 +377,6 @@ API reference: https://support.huaweicloud.com/api-projectman/BatchUpdateIpdIssu
 			return runIssueBatchUpdate(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&o.projectID, "project-id", "", "Override project_id (default from config)")
 	cmd.Flags().StringSliceVar(&o.ids, "id", nil, "Issue ID to update (repeatable)")
 	cmd.Flags().StringVar(&o.category, "category", "", "Target category (required unless present in --attribute)")
 	cmd.Flags().StringVar(&o.attribute, "attribute", "", "JSON object of attributes to set")
@@ -402,8 +394,8 @@ func runIssueBatchUpdate(cmd *cobra.Command, o *issueBatchOpts) error {
 		return err
 	}
 	projectID := cfg.ProjectID
-	if o.projectID != "" {
-		projectID = o.projectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
 	}
 	if len(o.ids) == 0 {
 		return fmt.Errorf("at least one --id is required")
