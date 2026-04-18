@@ -35,21 +35,39 @@ CodeArts ProjectMan 工作项（IPD）管理。**所有命令均使用 `config.j
 # 最简
 codearts-cli issue list --issue-type Bug
 
-# 多类型 + 分页 + 过滤
+# 查"我名下的 Bug"（assignee = config 中的 userId）
+codearts-cli issue list --issue-type Bug \
+  --filter "[{\"assignee\":{\"values\":[\"$(codearts-cli config show | jq -r .userId)\"],\"operator\":\"||\"}}]"
+
+# 多类型 + 分页 + 排序
 codearts-cli issue list --issue-type US,Task \
   --page-no 1 --page-size 50 \
-  --filter '[{"property":"status","condition":"include","value":["new"]}]'
-
-# 排序
-codearts-cli issue list --issue-type Bug --sort-field created_date --sort-asc
+  --sort-field created_date --sort-asc
 ```
 
 **API**: `POST /v1/ipdprojectservice/projects/{project_id}/issues/query?issue_type=...`
 
+### filter 参数结构
+
+```json
+[ { "<字段名>": { "values": ["..."], "operator": "||" } } ]
+```
+
+数组的每个元素是一个以字段名为 key 的 map；值是 `ConditionVO`。
+
+| 字段名示例 | 含义 |
+| --- | --- |
+| `assignee` | 处理人 user_id |
+| `status` | 状态 |
+| `priority` | 优先级（中 / 高 / 低） |
+| `descendants.<field>` | 同名字段的树形下钻版；一般场景用裸字段即可 |
+
+`operator` 取值：`||`（OR，默认）、`!`（NOT）、`=`（等于单值）、`<>` / `<` / `>`（日期/数字范围）。
+
 | Flag | 说明 |
 | --- | --- |
 | `--issue-type`（必填） | 逗号分隔的类型列表 |
-| `--filter` / `--filter-file` | JSON 数组过滤条件 |
+| `--filter` / `--filter-file` | JSON 数组过滤条件（格式见上） |
 | `--filter-mode` | `AND_OR`（默认）/ `OR_AND` |
 | `--page-no` / `--page-size` | 分页（0 = API 默认） |
 | `--sort-field` / `--sort-asc` | 排序字段与方向 |
@@ -101,7 +119,8 @@ codearts-cli issue create --body-file issue.json
 | `--description`（必填*） | 描述，最长 500000 字符 |
 | `--category`（必填*） | 类型：RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE |
 | `--assignee` | user_id UUID；省略时从 config `userId` 取 |
-| `--status` / `--priority` | 可选 |
+| `--status` | 可选。合法值：`Committed` / `Analyse` / `ToBeConfirmed` / `Plan` / `Doing` / `Delivered` / `Checking` |
+| `--priority` | 可选。合法值通常为 `中` / `高` / `低`（项目自定义） |
 | `--body` / `--body-file` | 完整 JSON（覆盖上面所有 flag） |
 | `--dry-run` | 预览请求 |
 

@@ -52,6 +52,11 @@ Valid types depend on project kind:
   - Independent Software: RR,SF,IR,US,Task,Bug
   - Cloud Services: RR,Epic,FE,US,Task,Bug
 
+Filter schema (Huawei IPD API): array of {"<field>": {"values":[...], "operator":"||"}}.
+  operator: "||" (OR, default) | "!" (NOT) | "=" | "<>" | "<" | ">"
+  example: filter my own bugs →
+    --filter '[{"assignee":{"values":["<user_id>"],"operator":"||"}}]'
+
 API reference: https://support.huaweicloud.com/api-projectman/ListIpdProjectIssues.html`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runIssueList(cmd, o)
@@ -231,7 +236,7 @@ API reference: https://support.huaweicloud.com/api-projectman/CreateIpdProjectIs
 	cmd.Flags().StringVar(&o.description, "description", "", "Issue description")
 	cmd.Flags().StringVar(&o.category, "category", "", "Issue category (RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE)")
 	cmd.Flags().StringVar(&o.assignee, "assignee", "", "Assignee user_id (32-char UUID)")
-	cmd.Flags().StringVar(&o.status, "status", "", "Status code (optional)")
+	cmd.Flags().StringVar(&o.status, "status", "", "Status code (optional): Committed | Analyse | ToBeConfirmed | Plan | Doing | Delivered | Checking")
 	cmd.Flags().StringVar(&o.priority, "priority", "", "Priority (optional)")
 	cmd.Flags().StringVar(&o.bodyJSON, "body", "", "Full JSON body (overrides flag-based fields)")
 	cmd.Flags().StringVar(&o.bodyFile, "body-file", "", "Path to a JSON file for the full body")

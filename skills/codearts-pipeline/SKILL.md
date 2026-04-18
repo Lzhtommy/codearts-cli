@@ -56,11 +56,12 @@ codearts-cli pipeline list --project-id <project_id> --offset 0 --limit 20
 | --- | --- |
 | `--project-id`（必填） | 华为云项目 UUID |
 | `--name` | 按流水线名称模糊匹配 |
-| `--status` | 按状态过滤（可重复） |
+| `--status` | 按状态过滤（可重复）：`COMPLETED` / `RUNNING` / `FAILED` / `CANCELED` / `PAUSED` / `SUSPEND` / `IGNORED` |
 | `--creator-id` / `--executor-id` | 按创建人/执行人 user_id 过滤（可重复） |
 | `--start-time` / `--end-time` | 时间范围过滤 |
 | `--offset` / `--limit` | 分页 |
-| `--sort-key` / `--sort-dir` | 排序字段与方向（asc/desc） |
+| `--sort-key` | 排序字段：`name` / `create_time` / `update_time` |
+| `--sort-dir` | 排序方向：`asc` / `desc` |
 | `--dry-run` | 预览请求 |
 
 **返回值**：`pipelines` 数组，每条包含 `pipeline_id`、`name`、`latest_run`（含 `pipeline_run_id`、`status`）。

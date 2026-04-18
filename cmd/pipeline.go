@@ -69,15 +69,15 @@ API reference: https://support.huaweicloud.com/api-pipeline/ListPipelines.html`,
 	}
 	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) Huawei Cloud project_id")
 	cmd.Flags().StringVar(&o.name, "name", "", "Filter by pipeline name (fuzzy match)")
-	cmd.Flags().StringSliceVar(&o.status, "status", nil, "Filter by status (repeatable)")
+	cmd.Flags().StringSliceVar(&o.status, "status", nil, "Filter by status (repeatable): COMPLETED | RUNNING | FAILED | CANCELED | PAUSED | SUSPEND | IGNORED")
 	cmd.Flags().StringSliceVar(&o.creatorIDs, "creator-id", nil, "Filter by creator user_id (repeatable)")
 	cmd.Flags().StringSliceVar(&o.executorIDs, "executor-id", nil, "Filter by executor user_id (repeatable)")
 	cmd.Flags().StringVar(&o.startTime, "start-time", "", "Filter: created after this time")
 	cmd.Flags().StringVar(&o.endTime, "end-time", "", "Filter: created before this time")
 	cmd.Flags().IntVar(&o.offset, "offset", 0, "Pagination offset (default 0)")
 	cmd.Flags().IntVar(&o.limit, "limit", 0, "Pagination limit (0 = API default)")
-	cmd.Flags().StringVar(&o.sortKey, "sort-key", "", "Sort field")
-	cmd.Flags().StringVar(&o.sortDir, "sort-dir", "", "Sort direction: asc / desc")
+	cmd.Flags().StringVar(&o.sortKey, "sort-key", "", "Sort field: name | create_time | update_time")
+	cmd.Flags().StringVar(&o.sortDir, "sort-dir", "", "Sort direction: asc | desc")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
 	return cmd
 }

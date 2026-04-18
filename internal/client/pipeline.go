@@ -14,12 +14,11 @@ import (
 // apply when omitted), but callers typically want to override at least
 // Sources (branch / commit for a specific run).
 type RunPipelineRequest struct {
-	Sources           []RunSource       `json:"sources,omitempty"`
-	Variables         []RunVariable     `json:"variables,omitempty"`
-	ChooseJobs        []string          `json:"choose_jobs,omitempty"`
-	ChooseStages      []string          `json:"choose_stages,omitempty"`
-	Description       string            `json:"description,omitempty"`
-	CustomParameters  map[string]string `json:"custom_parameters,omitempty"`
+	Sources      []RunSource   `json:"sources,omitempty"`
+	Variables    []RunVariable `json:"variables,omitempty"`
+	ChooseJobs   []string      `json:"choose_jobs,omitempty"`
+	ChooseStages []string      `json:"choose_stages,omitempty"`
+	Description  string        `json:"description,omitempty"`
 }
 
 // RunSource is a per-source override, typically the branch/tag/commit to

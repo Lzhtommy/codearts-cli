@@ -228,13 +228,31 @@ codearts-cli pipeline stop <pid> <run_id> --project-id <proj>
 #### `issue list` — 查询列表
 
 ```bash
-codearts-cli issue list --issue-type US,Task --page-no 1 --page-size 50
+# 最简
+codearts-cli issue list --issue-type Bug
+
+# 查"我名下的 Bug"（assignee = config 中的 userId）
+codearts-cli issue list --issue-type Bug \
+  --filter '[{"assignee":{"values":["<your_user_id>"],"operator":"||"}}]'
+
+# 分页 + 排序
+codearts-cli issue list --issue-type US,Task --page-no 1 --page-size 50 --sort-field created_date
 ```
+
+**filter 参数格式**：
+
+```json
+[{"<field>": {"values": ["..."], "operator": "||"}}]
+```
+
+- `<field>`：`assignee` / `status` / `priority` / … （加 `descendants.` 前缀可对子工作项下钻，一般无需）
+- `operator`：`||`（OR，默认）/ `!`（NOT）/ `=` / `<>` / `<` / `>`
 
 | Flag | 说明 |
 | --- | --- |
 | `--issue-type`（必填） | 逗号分隔：`RR/SF/IR/US/Task/Bug/Epic/FE/SR/AR` |
-| `--filter` / `--filter-file` | 过滤条件 JSON |
+| `--filter` / `--filter-file` | 过滤条件 JSON（格式见上） |
+| `--filter-mode` | `AND_OR`（默认）/ `OR_AND` |
 | `--page-no` / `--page-size` | 分页 |
 | `--sort-field` / `--sort-asc` | 排序 |
 
