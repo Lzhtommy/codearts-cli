@@ -38,7 +38,7 @@ QUICK START:
 
 DEFAULTS:
     project_id  cd130bd8357b4e7ab293a7979d1c8711
-    region      cn-south-1
+    gateway     http://10.250.63.100:8099
 
 Run 'codearts-cli <command> --help' for details.`
 

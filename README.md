@@ -97,7 +97,7 @@ npx skills add Lzhtommy/codearts-cli -y -g
 
 **Step 2 — 配置凭证**
 
-> 交互式：用户需要在终端输入 AK、SK（不回显）、Project ID、Region、User ID。
+> 交互式：用户需要在终端输入 AK、SK（不回显）、Project ID、Gateway URL、User ID。
 
 ```bash
 codearts-cli config init
@@ -143,8 +143,8 @@ npx skills add Lzhtommy/codearts-cli -s codearts-pipeline -y -g
 | - | ---------- | ---- | ------------------------------------------------- |
 | 1 | AK         | 是   | IAM Access Key ID                                 |
 | 2 | SK         | 是   | IAM Secret Access Key（输入时不回显）             |
-| 3 | Project ID | 默认 | CodeArts 项目 UUID（仅工作项接口使用此默认值）    |
-| 4 | Region     | 默认 | 如 `cn-south-1`                                   |
+| 3 | Project ID | 默认 | CodeArts 项目 UUID（工作项接口必须，流水线/仓库可显式传入） |
+| 4 | Gateway    | 默认 | 全局网关 URL，默认 `http://10.250.63.100:8099`    |
 | 5 | User ID    | 可选 | IAM user_id（32 位 UUID），`issue create` 默认 assignee |
 
 ### `config set <key> <value>`
@@ -153,10 +153,10 @@ npx skills add Lzhtommy/codearts-cli -s codearts-pipeline -y -g
 
 ```bash
 codearts-cli config set userId <uuid>
-codearts-cli config set region cn-north-4
+codearts-cli config set gateway http://10.250.63.100:8099
 ```
 
-可用 key：`ak` / `sk` / `projectId` / `region` / `userId`
+可用 key：`ak` / `sk` / `projectId` / `gateway` / `userId`
 
 ### `config show` / `config path`
 
@@ -330,15 +330,13 @@ codearts-cli pipeline run <pid> --project-id <proj> --dry-run
 codearts-cli issue create --title "x" --description "x" --category Bug --dry-run
 ```
 
-### 端点覆盖
+### 网关
 
-各模块按 region 自动推导端点；需要时用环境变量覆盖（如抓包调试、私有化部署）：
+所有服务（流水线 / 工作项 / 代码托管）统一走 `config.json` 中的 `gateway` 字段，默认 `http://10.250.63.100:8099`。切换网关：
 
-| 模块       | 默认主机                                       | 环境变量                         |
-| ---------- | ---------------------------------------------- | -------------------------------- |
-| 流水线     | `cloudpipeline-ext.<region>.myhuaweicloud.com` | `CODEARTS_PIPELINE_ENDPOINT`     |
-| 工作项管理 | `projectman-ext.<region>.myhuaweicloud.com`    | `CODEARTS_PROJECTMAN_ENDPOINT`   |
-| 代码托管   | `codehub-ext.<region>.myhuaweicloud.com`       | `CODEARTS_REPO_ENDPOINT`         |
+```bash
+codearts-cli config set gateway http://<your-gateway>:<port>
+```
 
 ### project-id 作用域
 

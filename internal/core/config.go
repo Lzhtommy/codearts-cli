@@ -14,11 +14,12 @@ import (
 	"path/filepath"
 )
 
-// Default endpoints for Huawei Cloud CodeArts. These can be overridden per-
-// profile but they match what the web console uses for a cn-south-1 tenant.
+// Defaults for first-run config. All CodeArts traffic goes through a single
+// gateway (pipeline / projectman / repo are all reachable behind it), so the
+// old per-service regional endpoints are no longer part of the schema.
 const (
 	DefaultProjectID = "cd130bd8357b4e7ab293a7979d1c8711"
-	DefaultRegion    = "cn-south-1"
+	DefaultGateway   = "http://10.250.63.100:8099"
 
 	configDirName  = ".codearts-cli"
 	configFileName = "config.json"
@@ -29,13 +30,15 @@ const (
 // Config is the on-disk configuration schema.
 //
 // Fields are intentionally simple and flat; the CodeArts API model has
-// project_id / region scoping but most users operate against a single tenant
-// so we avoid the multi-profile complexity of the lark-cli for now.
+// project_id scoping but most users operate against a single tenant so we
+// avoid the multi-profile complexity of the lark-cli for now.
 type Config struct {
 	AK        string `json:"ak"`
 	SK        string `json:"sk"`
 	ProjectID string `json:"projectId"`
-	Region    string `json:"region"`
+	// Gateway is the full base URL (scheme + host + optional port) fronting
+	// all CodeArts services. Example: "http://10.250.63.100:8099".
+	Gateway string `json:"gateway"`
 	// UserID is the 32-char IAM user UUID of the caller. Optional overall
 	// but required for write APIs that default assignee/author to the caller
 	// (e.g. CreateIpdProjectIssue's `assignee` field).
@@ -51,11 +54,11 @@ func (c *Config) Validate() error {
 	if c.SK == "" {
 		return errors.New("sk is empty — run `codearts-cli config init` to set up credentials")
 	}
-	if c.Region == "" {
-		return errors.New("region is empty — run `codearts-cli config set region cn-south-1`")
+	if c.Gateway == "" {
+		return errors.New("gateway is empty — run `codearts-cli config set gateway <url>`")
 	}
 	// ProjectID is no longer universally required (pipeline/repo commands
-	// use --project-id flag instead). We only check AK/SK/Region here.
+	// use --project-id flag instead). We only check AK/SK/Gateway here.
 	return nil
 }
 
@@ -78,7 +81,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &Config{ProjectID: DefaultProjectID, Region: DefaultRegion}, nil
+			return &Config{ProjectID: DefaultProjectID, Gateway: DefaultGateway}, nil
 		}
 		return nil, fmt.Errorf("read config %s: %w", p, err)
 	}
@@ -90,8 +93,8 @@ func Load() (*Config, error) {
 	if cfg.ProjectID == "" {
 		cfg.ProjectID = DefaultProjectID
 	}
-	if cfg.Region == "" {
-		cfg.Region = DefaultRegion
+	if cfg.Gateway == "" {
+		cfg.Gateway = DefaultGateway
 	}
 	return cfg, nil
 }

@@ -10,14 +10,14 @@ import (
 )
 
 func TestValidate_OK(t *testing.T) {
-	cfg := &core.Config{AK: "ak", SK: "sk", Region: "cn-south-1"}
+	cfg := &core.Config{AK: "ak", SK: "sk", Gateway: "http://gw:8099"}
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("Validate() unexpected error: %v", err)
 	}
 }
 
 func TestValidate_MissingAK(t *testing.T) {
-	cfg := &core.Config{SK: "sk", Region: "cn-south-1"}
+	cfg := &core.Config{SK: "sk", Gateway: "http://gw:8099"}
 	err := cfg.Validate()
 	if err == nil {
 		t.Fatal("should fail with empty AK")
@@ -28,7 +28,7 @@ func TestValidate_MissingAK(t *testing.T) {
 }
 
 func TestValidate_MissingSK(t *testing.T) {
-	cfg := &core.Config{AK: "ak", Region: "cn-south-1"}
+	cfg := &core.Config{AK: "ak", Gateway: "http://gw:8099"}
 	err := cfg.Validate()
 	if err == nil {
 		t.Fatal("should fail with empty SK")
@@ -38,19 +38,19 @@ func TestValidate_MissingSK(t *testing.T) {
 	}
 }
 
-func TestValidate_MissingRegion(t *testing.T) {
+func TestValidate_MissingGateway(t *testing.T) {
 	cfg := &core.Config{AK: "ak", SK: "sk"}
 	err := cfg.Validate()
 	if err == nil {
-		t.Fatal("should fail with empty Region")
+		t.Fatal("should fail with empty Gateway")
 	}
-	if !strings.Contains(err.Error(), "config set") {
-		t.Errorf("error should hint at config set, got: %s", err)
+	if !strings.Contains(err.Error(), "gateway") {
+		t.Errorf("error should hint at gateway, got: %s", err)
 	}
 }
 
 func TestValidate_NoProjectID_OK(t *testing.T) {
-	cfg := &core.Config{AK: "ak", SK: "sk", Region: "cn-south-1"}
+	cfg := &core.Config{AK: "ak", SK: "sk", Gateway: "http://gw:8099"}
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("should not require ProjectID, got: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestValidate_NoProjectID_OK(t *testing.T) {
 func TestRedacted(t *testing.T) {
 	cfg := &core.Config{
 		AK: "HPUA1234567890", SK: "supersecret",
-		ProjectID: "proj123", Region: "cn-south-1", UserID: "user123",
+		ProjectID: "proj123", Gateway: "http://gw:8099", UserID: "user123",
 	}
 	r := core.Redacted(cfg)
 	if r.AK != "HPUA****" {
@@ -104,7 +104,7 @@ func TestSaveAndLoad(t *testing.T) {
 
 	cfg := &core.Config{
 		AK: "testAK", SK: "testSK", ProjectID: "proj",
-		Region: "cn-south-1", UserID: "user",
+		Gateway: "http://gw:8099", UserID: "user",
 	}
 	if err := core.Save(cfg); err != nil {
 		t.Fatalf("Save() error: %v", err)
@@ -123,7 +123,7 @@ func TestSaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if loaded.AK != "testAK" || loaded.SK != "testSK" || loaded.UserID != "user" {
+	if loaded.AK != "testAK" || loaded.SK != "testSK" || loaded.UserID != "user" || loaded.Gateway != "http://gw:8099" {
 		t.Errorf("Load() fields mismatch: %+v", loaded)
 	}
 }
@@ -141,8 +141,8 @@ func TestLoad_NoFile_ReturnsDefaults(t *testing.T) {
 	if cfg.ProjectID != core.DefaultProjectID {
 		t.Errorf("default ProjectID = %q, want %q", cfg.ProjectID, core.DefaultProjectID)
 	}
-	if cfg.Region != core.DefaultRegion {
-		t.Errorf("default Region = %q, want %q", cfg.Region, core.DefaultRegion)
+	if cfg.Gateway != core.DefaultGateway {
+		t.Errorf("default Gateway = %q, want %q", cfg.Gateway, core.DefaultGateway)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestLoad_IgnoresUnknownFields(t *testing.T) {
 	dir := filepath.Join(tmpDir, ".codearts-cli")
 	os.MkdirAll(dir, 0o700)
 	os.WriteFile(filepath.Join(dir, "config.json"),
-		[]byte(`{"ak":"ak","sk":"sk","projectId":"p","region":"r","endpoint":"https://old.com"}`), 0o600)
+		[]byte(`{"ak":"ak","sk":"sk","projectId":"p","gateway":"http://gw:8099","endpoint":"https://old.com"}`), 0o600)
 
 	cfg, err := core.Load()
 	if err != nil {
@@ -163,5 +163,31 @@ func TestLoad_IgnoresUnknownFields(t *testing.T) {
 	}
 	if cfg.AK != "ak" {
 		t.Errorf("AK = %q, want ak", cfg.AK)
+	}
+	if cfg.Gateway != "http://gw:8099" {
+		t.Errorf("Gateway = %q, want http://gw:8099", cfg.Gateway)
+	}
+}
+
+// TestLoad_LegacyRegionConfig verifies that an old config file containing
+// a `region` field loads cleanly (the field is silently ignored) and the
+// default Gateway is backfilled.
+func TestLoad_LegacyRegionConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	origHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	dir := filepath.Join(tmpDir, ".codearts-cli")
+	os.MkdirAll(dir, 0o700)
+	os.WriteFile(filepath.Join(dir, "config.json"),
+		[]byte(`{"ak":"ak","sk":"sk","projectId":"p","region":"cn-south-1"}`), 0o600)
+
+	cfg, err := core.Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.Gateway != core.DefaultGateway {
+		t.Errorf("legacy config should backfill Gateway with default, got %q", cfg.Gateway)
 	}
 }

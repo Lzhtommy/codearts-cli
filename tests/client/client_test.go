@@ -15,10 +15,12 @@ import (
 func newTestClient(t *testing.T, handler http.HandlerFunc) (*client.Client, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewServer(handler)
+	// Point Gateway at the test server so Do's dial rewrite reaches it.
+	// The endpoint passed to Do (srv.URL in tests) drives signing only.
 	cfg := &core.Config{
-		AK:     "TESTAK",
-		SK:     "TESTSK",
-		Region: "cn-south-1",
+		AK:      "TESTAK",
+		SK:      "TESTSK",
+		Gateway: srv.URL,
 	}
 	cli, err := client.New(cfg)
 	if err != nil {
@@ -136,7 +138,7 @@ func TestDo_PostBody(t *testing.T) {
 }
 
 func TestNew_MissingCredentials(t *testing.T) {
-	_, err := client.New(&core.Config{Region: "cn-south-1"})
+	_, err := client.New(&core.Config{Gateway: "http://gw:8099"})
 	if err == nil {
 		t.Error("New() should fail with empty AK/SK")
 	}

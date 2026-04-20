@@ -38,7 +38,7 @@ codearts-cli config init
 | 1 | AK         | 是   | IAM Access Key ID                                 |
 | 2 | SK         | 是   | IAM Secret Access Key（输入时不回显）             |
 | 3 | Project ID | 默认 | CodeArts 项目 UUID（工作项接口直接使用此值，流水线/repo 可显式覆盖） |
-| 4 | Region     | 默认 | 如 cn-south-1                                     |
+| 4 | Gateway    | 默认 | CodeArts 网关 URL，默认 `http://10.250.63.100:8099` |
 | 5 | User ID    | 可选 | IAM user_id（32 位 UUID），issue create 默认 assignee |
 
 ### 非交互 / CI 模式
@@ -51,7 +51,7 @@ echo "$HW_SK" | codearts-cli config init \
 
 # 修改单个字段（不用走完整 init）
 codearts-cli config set userId <uuid>
-codearts-cli config set region cn-north-4
+codearts-cli config set gateway http://<host>:<port>
 ```
 
 ### 配置文件
@@ -69,13 +69,11 @@ codearts-cli config set region cn-north-4
 
 ## 端点解析
 
-各模块的端点按 region 自动推导；需覆盖时用环境变量：
+所有服务共用 `config.json` 的 `gateway` 字段，默认 `http://10.250.63.100:8099`。不再按 region 推导，不再支持 `CODEARTS_*_ENDPOINT` 环境变量。切换网关：
 
-| 模块       | 默认主机                                       | 环境变量                      |
-| ---------- | ---------------------------------------------- | ----------------------------- |
-| 流水线     | `cloudpipeline-ext.<region>.myhuaweicloud.com` | `CODEARTS_PIPELINE_ENDPOINT`  |
-| 工作项管理 | `projectman-ext.<region>.myhuaweicloud.com`    | `CODEARTS_PROJECTMAN_ENDPOINT`|
-| 代码托管   | `codehub-ext.<region>.myhuaweicloud.com`       | `CODEARTS_REPO_ENDPOINT`      |
+```bash
+codearts-cli config set gateway http://<host>:<port>
+```
 
 ## 错误处理
 
@@ -83,7 +81,7 @@ codearts-cli config set region cn-north-4
 
 服务端会在错误体中回显它自己算出的 `canonical_request`，直接与客户端的对比即可定位差异。常见原因：
 - AK/SK 错误 → `codearts-cli config show` 检查
-- region 拼错 → `codearts-cli config set region <correct>`
+- 网关 URL 错误 → `codearts-cli config set gateway <correct-url>`
 
 ### 400 PARSE_REQUEST_DATA_EXCEPTION
 

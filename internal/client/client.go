@@ -15,8 +15,20 @@ import (
 	"github.com/Lzhtommy/codearts-cli/internal/core"
 )
 
+// Upstream hostnames the CLI signs requests against. These are stable
+// identities the gateway matches on (Host header) to route to the correct
+// upstream. Requests physically go to cfg.Gateway, but the Host header —
+// and therefore the AK/SK signature — must reference these names so Huawei
+// Cloud's IAM validator accepts the request after the gateway forwards.
+const (
+	hostPipeline   = "cloudpipeline-ext.cn-south-1.myhuaweicloud.com"
+	hostProjectMan = "projectman-ext.cn-south-1.myhuaweicloud.com"
+	hostRepo       = "codehub-ext.cn-south-1.myhuaweicloud.com"
+)
+
 // Client is a thin HTTP wrapper for Huawei Cloud CodeArts APIs with AK/SK
-// request signing and endpoint resolution.
+// request signing. All services (pipeline, projectman, repo) are reachable
+// through a single gateway configured in ~/.codearts-cli/config.json.
 type Client struct {
 	cfg    *core.Config
 	signer *Signer
@@ -63,38 +75,30 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("codearts api error [%d]: %s%s", e.StatusCode, body, hint)
 }
 
-// PipelineEndpoint returns the cloudpipeline host for the configured region.
-// Precedence: $CODEARTS_PIPELINE_ENDPOINT > regional default.
-//
-// The regional default follows Huawei Cloud's subdomain convention:
-// https://cloudpipeline-ext.<region>.myhuaweicloud.com
+// PipelineEndpoint returns the signing-time base URL for CodeArts Pipeline.
+// The scheme+host are fixed because the signature pins them; the actual TCP
+// connection goes to cfg.Gateway — see Do for the dial rewrite.
 func (c *Client) PipelineEndpoint() string {
-	if v := os.Getenv("CODEARTS_PIPELINE_ENDPOINT"); v != "" {
-		return strings.TrimRight(v, "/")
-	}
-	return fmt.Sprintf("https://cloudpipeline-ext.%s.myhuaweicloud.com", c.cfg.Region)
+	return "https://" + hostPipeline
 }
 
-// ProjectManEndpoint returns the host for CodeArts ProjectMan / 工作项管理.
-// Override via $CODEARTS_PROJECTMAN_ENDPOINT.
+// ProjectManEndpoint returns the signing-time base URL for CodeArts ProjectMan.
 func (c *Client) ProjectManEndpoint() string {
-	if v := os.Getenv("CODEARTS_PROJECTMAN_ENDPOINT"); v != "" {
-		return strings.TrimRight(v, "/")
-	}
-	return fmt.Sprintf("https://projectman-ext.%s.myhuaweicloud.com", c.cfg.Region)
+	return "https://" + hostProjectMan
 }
 
-// RepoEndpoint returns the host for CodeArts Repo / 代码托管.
-// Override via $CODEARTS_REPO_ENDPOINT.
+// RepoEndpoint returns the signing-time base URL for CodeArts Repo.
 func (c *Client) RepoEndpoint() string {
-	if v := os.Getenv("CODEARTS_REPO_ENDPOINT"); v != "" {
-		return strings.TrimRight(v, "/")
-	}
-	return fmt.Sprintf("https://codehub-ext.%s.myhuaweicloud.com", c.cfg.Region)
+	return "https://" + hostRepo
 }
 
 // Do builds, signs, and sends a request to the given endpoint+path and
 // decodes the JSON response into out. bodyJSON may be nil.
+//
+// endpoint is the *signing* URL (a Huawei Cloud hostname, e.g. cloudpipeline
+// -ext.cn-south-1.myhuaweicloud.com). After signing, the request is redirected
+// to cfg.Gateway at the TCP layer while keeping the Host header pointing at
+// the Huawei hostname. The gateway then routes by Host to the correct upstream.
 func (c *Client) Do(ctx context.Context, method, endpoint, path string, query url.Values, bodyJSON interface{}, out interface{}) error {
 	var bodyBytes []byte
 	if bodyJSON != nil {
@@ -128,12 +132,23 @@ func (c *Client) Do(ctx context.Context, method, endpoint, path string, query ur
 		return fmt.Errorf("sign request: %w", err)
 	}
 
+	// Redirect TCP to the gateway while preserving the Host header (already
+	// baked into the signature). Without this the request would try to resolve
+	// the Huawei hostname directly, bypassing the gateway.
+	gwURL, err := url.Parse(c.cfg.Gateway)
+	if err != nil || gwURL.Host == "" {
+		return fmt.Errorf("invalid gateway %q in config: want http(s)://host[:port]", c.cfg.Gateway)
+	}
+	req.Host = req.URL.Host
+	req.URL.Scheme = gwURL.Scheme
+	req.URL.Host = gwURL.Host
+
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if os.IsTimeout(err) {
-			return fmt.Errorf("request timed out (30s) to %s: check network connectivity and region (%s)", endpoint, c.cfg.Region)
+			return fmt.Errorf("request timed out (30s) via gateway %s: check gateway reachability", c.cfg.Gateway)
 		}
-		return fmt.Errorf("send request to %s: %w — check network and region (%s)", endpoint, err, c.cfg.Region)
+		return fmt.Errorf("send request via gateway %s: %w", c.cfg.Gateway, err)
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)

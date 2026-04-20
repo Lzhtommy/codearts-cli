@@ -117,7 +117,7 @@ func runPipelineList(cmd *cobra.Command, o *pipelineListOpts) error {
 			"method":     "POST",
 			"project_id": projectID,
 			"path":       fmt.Sprintf("/v5/%s/api/pipelines/list", projectID),
-			"region":     cfg.Region,
+			"gateway":    cfg.Gateway,
 			"body":       body,
 		})
 		return nil
@@ -186,7 +186,7 @@ func runPipelineStop(cmd *cobra.Command, o *pipelineStopOpts) error {
 			"pipeline_id":     o.pipelineID,
 			"pipeline_run_id": o.runID,
 			"path":            fmt.Sprintf("/v5/%s/api/pipelines/%s/pipeline-runs/%s/stop", projectID, o.pipelineID, o.runID),
-			"region":          cfg.Region,
+			"gateway":         cfg.Gateway,
 		})
 		return nil
 	}
@@ -225,7 +225,7 @@ func newPipelineRunCmd() *cobra.Command {
 		Short: "Trigger a pipeline run (RunPipeline API)",
 		Long: `Trigger a CodeArts pipeline run.
 
-The pipeline_id is required (positional arg). project_id and region come from
+The pipeline_id is required (positional arg). project_id and gateway come from
 your config unless overridden with flags.
 
 EXAMPLES:
@@ -293,7 +293,7 @@ func runPipelineRun(cmd *cobra.Command, o *pipelineRunOpts) error {
 			"project_id":  projectID,
 			"pipeline_id": o.pipelineID,
 			"path":        fmt.Sprintf("/v5/%s/api/pipelines/%s/run", projectID, o.pipelineID),
-			"region":      cfg.Region,
+			"gateway":     cfg.Gateway,
 			"body":        body,
 		})
 		return nil
