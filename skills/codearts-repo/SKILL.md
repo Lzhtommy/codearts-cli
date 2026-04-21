@@ -60,7 +60,7 @@ codearts-cli repo list --project-id <project_uuid> --search "backend"
 codearts-cli repo list --project-id <project_uuid> --page-index 2 --page-size 10
 ```
 
-**API**: `GET /v2/projects/{project_uuid}/repositories`
+**API 参考**: [ShowAllRepositoryByTwoProjectId](https://support.huaweicloud.com/api-codeartsrepo/ShowAllRepositoryByTwoProjectId.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -107,7 +107,7 @@ codearts-cli repo mr create <repo_id> \
 codearts-cli repo mr create <repo_id> --body-file mr.json
 ```
 
-**API**: `POST /v4/repositories/{repository_id}/merge-requests`
+**API 参考**: [CreateMergeRequest](https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -148,7 +148,7 @@ codearts-cli repo mr comment <repo_id> <mr_iid> \
 codearts-cli repo mr comment <repo_id> <mr_iid> --body-file review.json
 ```
 
-**API**: `POST /v4/repositories/{repository_id}/merge-requests/{merge_request_iid}/discussions`
+**API 参考**: [CreateMergeRequestDiscussion](https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequestDiscussion.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -182,7 +182,7 @@ codearts-cli repo member list <repo_id> --offset 20 --limit 50
 codearts-cli repo member list <repo_id> --permission code --action push
 ```
 
-**API**: `GET /v4/repositories/{repository_id}/members`
+**API 参考**: [ListMembers](https://support.huaweicloud.com/api-codeartsrepo/ListMembers.html)
 
 | Flag | 说明 |
 | --- | --- |

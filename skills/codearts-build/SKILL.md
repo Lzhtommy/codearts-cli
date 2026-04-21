@@ -44,7 +44,7 @@ codearts-cli build list --project-id <proj> --build-status red
 codearts-cli build list --project-id <proj> --by-group --group-path-id <gid>
 ```
 
-**API**: `GET /v1/job/{project_id}/list`
+**API 参考**: [ListProjectJobs](https://support.huaweicloud.com/api-codeci/ListProjectJobs.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -89,7 +89,7 @@ codearts-cli build run <job_id> --build-type commitId --commit-id 7a9f...
 codearts-cli build run <job_id> --body-file build.json
 ```
 
-**API**: `POST /v1/job/execute`（`job_id` 写入 body）
+**API 参考**: [ExecuteJob](https://support.huaweicloud.com/api-codeci/ExecuteJob.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -114,7 +114,7 @@ codearts-cli build run <job_id> --body-file build.json
 codearts-cli build stop <job_id> <build_no>
 ```
 
-**API**: `POST /v1/job/{job_id}/stop`，body `{"build_no": <int>}`。
+**API 参考**: [StopTheJob](https://support.huaweicloud.com/api-codeci/StopTheJob.html)
 
 | 参数 | 说明 |
 | --- | --- |

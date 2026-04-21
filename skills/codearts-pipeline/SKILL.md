@@ -50,7 +50,7 @@ codearts-cli pipeline list --project-id <project_id> --name "deploy"
 codearts-cli pipeline list --project-id <project_id> --offset 0 --limit 20
 ```
 
-**API**: `POST /v5/{project_id}/api/pipelines/list`
+**API 参考**: [ListPipelines](https://support.huaweicloud.com/api-pipeline/ListPipelines.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -89,7 +89,7 @@ codearts-cli pipeline run <pipeline_id> --project-id <project_id> --body-file ru
 codearts-cli pipeline run <pipeline_id> --project-id <project_id> --dry-run
 ```
 
-**API**: `POST /v5/{project_id}/api/pipelines/{pipeline_id}/run`
+**API 参考**: [RunPipeline](https://support.huaweicloud.com/api-pipeline/RunPipeline.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -111,7 +111,7 @@ codearts-cli pipeline run <pipeline_id> --project-id <project_id> --dry-run
 codearts-cli pipeline stop <pipeline_id> <pipeline_run_id> --project-id <project_id>
 ```
 
-**API**: `POST /v5/{project_id}/api/pipelines/{pipeline_id}/pipeline-runs/{pipeline_run_id}/stop`
+**API 参考**: [StopPipelineRun](https://support.huaweicloud.com/api-pipeline/StopPipelineRun.html)
 
 | Flag | 说明 |
 | --- | --- |

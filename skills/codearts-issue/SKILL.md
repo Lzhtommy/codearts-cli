@@ -45,7 +45,7 @@ codearts-cli issue list --issue-type US,Task \
   --sort-field created_date --sort-asc
 ```
 
-**API**: `POST /v1/ipdprojectservice/projects/{project_id}/issues/query?issue_type=...`
+**API 参考**: [ListIpdProjectIssues](https://support.huaweicloud.com/api-projectman/ListIpdProjectIssues.html)
 
 ### filter 参数结构
 
@@ -81,7 +81,7 @@ codearts-cli issue list --issue-type US,Task \
 codearts-cli issue show <issue_id> --issue-type US
 ```
 
-**API**: `GET /v1/ipdprojectservice/projects/{project_id}/issues/{issue_id}?issue_type=...`
+**API 参考**: [ShowIssueDetail](https://support.huaweicloud.com/api-projectman/ShowIssueDetail.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -111,7 +111,7 @@ codearts-cli issue create \
 codearts-cli issue create --body-file issue.json
 ```
 
-**API**: `POST /v1/ipdprojectservice/projects/{project_id}/issues`
+**API 参考**: [CreateIpdProjectIssue](https://support.huaweicloud.com/api-projectman/CreateIpdProjectIssue.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -138,7 +138,7 @@ codearts-cli issue batch-update \
   --attribute '{"priority":"中"}'
 ```
 
-**API**: `PUT /v1/ipdprojectservice/projects/{project_id}/issues/batch`
+**API 参考**: [BatchUpdateIpdIssues](https://support.huaweicloud.com/api-projectman/BatchUpdateIpdIssues.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -148,6 +148,38 @@ codearts-cli issue batch-update \
 | `--dry-run` | 预览请求 |
 
 *category 也可在 `--attribute` JSON 中提供。
+
+**`attribute` 常用字段**（完整列表见 API 参考，仅 `category` 必填，其余按需传）：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `category` | string | **必填**。目标工作项类型（RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE） |
+| `status` | string | 状态码（取值随项目配置，见 `issue statuses`） |
+| `priority` | string | 优先级（通常 `中` / `高` / `低`） |
+| `title` | string | 标题（≤256） |
+| `description` | string | 描述（≤50000） |
+| `assignee` | object | 处理人 `{"user_id":"..."}` |
+| `parent_id` | string | 父工作项 ID（层级挂接） |
+| `link` | string | 关联工作项 ID，英文逗号分隔（≤2048） |
+| `plan_end_date` | string | 计划结束日期（毫秒时间戳字符串） |
+| `workload` | string | 计划工时（0–999999999.9） |
+| `plan_pi` / `plan_iteration` | string | 发布计划 / 迭代计划 ID |
+| `labels` | array | 标签数组 |
+| `custom_fields` | array | 自定义字段 `[{field_code, value}]` |
+| `close_type` | string | 关闭类型（关闭时配合 `status`） |
+| `fixed_owner` / `reason_analysis` / `repair_solution` / `expected_repair_date` | — | Bug 专用字段 |
+
+示例：
+
+```bash
+# 挂到父工作项 + 关联其它工作项
+codearts-cli issue batch-update --id 111,222 --category US \
+  --attribute '{"parent_id":"1001","link":"2001,2002"}'
+
+# 批量改状态
+codearts-cli issue batch-update --id 111,222 --category Bug \
+  --attribute '{"status":"Delivered"}'
+```
 
 ### issue relations
 
@@ -161,7 +193,7 @@ codearts-cli issue relations <issue_id> --category US
 codearts-cli issue relations <issue_id> --category Bug --is-src true
 ```
 
-**API**: `GET /v1/ipdprojectservice/projects/{project_id}/e2e/graphs?issue_id=&category=&is_src=`
+**API 参考**: [ListE2EGraphsOpenAPI](https://support.huaweicloud.com/api-projectman/ListE2EGraphsOpenAPI.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -185,7 +217,7 @@ codearts-cli issue relations <issue_id> --category Bug --is-src true
 codearts-cli issue members
 ```
 
-**API**: `GET /v1/ipdprojectservice/projects/{project_id}/users`
+**API 参考**: [ListProjectUsers](https://support.huaweicloud.com/api-projectman/ListProjectUsers.html)
 
 | Flag | 说明 |
 | --- | --- |
@@ -207,7 +239,7 @@ codearts-cli issue members
 codearts-cli issue statuses <category_id>
 ```
 
-**API**: `GET /v1/ipdprojectservice/projects/{project_id}/category/{category_id}/statuses`
+**API 参考**: [ListIssueStatues](https://support.huaweicloud.com/api-projectman/ListIssueStatues.html)
 
 | 参数 | 说明 |
 | --- | --- |
