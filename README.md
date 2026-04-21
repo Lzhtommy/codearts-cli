@@ -4,7 +4,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
 [![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
 
-华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 17 个接口，配套 5 个 AI Agent [Skills](./skills/)。
+华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 19 个接口，配套 5 个 AI Agent [Skills](./skills/)。
 
 [安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [测试](#测试) · [架构](#项目结构) · [贡献](#贡献)
 
@@ -24,6 +24,7 @@
 | 🚀 流水线  | `pipeline list`      | ListPipelines                      | 查询流水线列表           |
 | 🚀 流水线  | `pipeline run`       | RunPipeline                        | 触发流水线               |
 | 🚀 流水线  | `pipeline stop`      | StopPipelineRun                    | 停止流水线实例           |
+| 🚀 流水线  | `pipeline status`    | ShowPipelineRunDetail              | 查询流水线运行详情       |
 | 📋 工作项  | `issue list`         | ListIpdProjectIssues               | 查询工作项列表           |
 | 📋 工作项  | `issue show`         | ShowIssueDetail                    | 查询工作项详情           |
 | 📋 工作项  | `issue create`       | CreateIpdProjectIssue              | 创建工作项               |
@@ -38,6 +39,7 @@
 | 🛠️ 编译构建 | `build list`         | ListProjectJobs                    | 查询项目构建任务列表     |
 | 🛠️ 编译构建 | `build run`          | ExecuteJob                         | 触发构建                 |
 | 🛠️ 编译构建 | `build stop`         | StopTheJob                         | 停止运行中的构建         |
+| 🛠️ 编译构建 | `build status`       | ShowJobStepStatus                  | 查询构建任务步骤状态     |
 
 ## 安装
 
@@ -128,10 +130,10 @@ codearts-cli issue list --issue-type Bug --dry-run
 | Skill                | 说明                                                                              |
 | -------------------- | --------------------------------------------------------------------------------- |
 | `codearts-shared`    | 配置初始化、凭证管理、通用标志、端点解析、错误处理（被其它 skill 自动引用）       |
-| `codearts-pipeline`  | 流水线列表 / 启动 / 停止                                                          |
+| `codearts-pipeline`  | 流水线列表 / 启动 / 停止 / 运行详情                                              |
 | `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新 / 关联追溯 / 项目成员 / 状态定义             |
 | `codearts-repo`      | 仓库列表 / MR 创建 / MR 检视意见 / 仓库成员                                      |
-| `codearts-build`     | 构建任务列表 / 触发构建 / 停止构建                                               |
+| `codearts-build`     | 构建任务列表 / 触发构建 / 停止构建 / 步骤状态                                    |
 
 ```bash
 # 安装全部 skills
@@ -228,6 +230,18 @@ codearts-cli pipeline run <pid> --project-id <proj> \
 ```bash
 codearts-cli pipeline stop <pid> <run_id> --project-id <proj>
 ```
+
+#### `pipeline status <pipeline_id> [pipeline_run_id]` — 查询运行详情
+
+```bash
+# 查指定 run
+codearts-cli pipeline status <pid> <run_id> --project-id <proj>
+
+# 省略 run_id，返回最近一次运行
+codearts-cli pipeline status <pid> --project-id <proj>
+```
+
+返回 `status` / `start_time` / `end_time` / `run_number` / `stages` / `sources` / `artifacts` 等字段。
 
 ### 工作项管理
 
@@ -429,6 +443,18 @@ codearts-cli build stop 48c66c6002964721be537cdc6ce0297b 105
 
 `<build_no>` 是**单次构建序号**（从 1 递增），来自 `build run` 返回值或构建历史面板，**不要**和 `job_id` 混淆。
 
+#### `build status <job_id> [build_no]` — 查询构建状态
+
+```bash
+# 省略 build_no 时 API 默认查 build_no=1
+codearts-cli build status <job_id>
+
+# 查指定构建编号
+codearts-cli build status <job_id> 42
+```
+
+返回 `result.workflow.status`（`completed`/`runnable`/`pending`）、`result.workflow.abort_status`（`aborted`/`timeout`/空）、`status`（`success`/`fail`）等字段。
+
 ## 高级用法
 
 ### Dry Run
@@ -519,10 +545,10 @@ codearts-cli/
 ├── cmd/
 │   ├── root.go                       # 根命令
 │   ├── config.go                     # config init / show / path / set
-│   ├── pipeline.go                   # pipeline list / run / stop
+│   ├── pipeline.go                   # pipeline list / run / stop / status
 │   ├── issue.go                      # issue list / show / create / batch-update / relations / members / statuses
 │   ├── repo.go                       # repo list / mr create / mr comment / member list
-│   └── build.go                      # build list / run / stop
+│   └── build.go                      # build list / run / stop / status
 └── internal/
     ├── core/config.go                # 配置加载 / 保存（~/.codearts-cli/config.json）
     ├── client/

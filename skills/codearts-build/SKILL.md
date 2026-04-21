@@ -1,7 +1,7 @@
 ---
 name: codearts-build
 version: 0.1.0
-description: "CodeArts 编译构建（CodeCI）：查询构建任务列表（ListProjectJobs）、执行构建（ExecuteJob）、停止构建（StopTheJob）。当用户需要查看构建任务、触发构建或停止运行中的构建时使用。"
+description: "CodeArts 编译构建（CodeCI）：查询构建任务列表（ListProjectJobs）、执行构建（ExecuteJob）、停止构建（StopTheJob）、查询构建任务状态（ShowJobStepStatus）。当用户需要查看构建任务、触发构建、停止运行中的构建或查询构建状态时使用。"
 metadata:
   category: "devops"
   requires:
@@ -124,6 +124,28 @@ codearts-cli build stop <job_id> <build_no>
 
 **返回值**：`{"status": "success"}`。
 
+### build status
+
+查询一次构建的步骤状态（workflow / 运行状态 / 中止条件）。
+
+```bash
+# 省略 build_no 时 API 默认查 build_no=1
+codearts-cli build status <job_id>
+
+# 查询指定构建编号
+codearts-cli build status <job_id> 42
+```
+
+**API 参考**: [ShowJobStepStatus](https://support.huaweicloud.com/api-codeci/ShowJobStepStatus.html)
+
+| 参数 | 说明 |
+| --- | --- |
+| `<job_id>` | 32 位构建任务 ID |
+| `[build_no]` | 可选；省略时 API 默认 1。用 `build run` 返回的 `daily_build_number` 查指定实例 |
+| `--dry-run` | 预览请求 |
+
+**返回值**：`result.workflow.status`（`completed`/`runnable`/`pending`）、`result.workflow.abort_status`（`aborted`/`timeout`/空）、`status`（`success`/`fail`）等。
+
 ## 典型工作流
 
 ```bash
@@ -136,7 +158,10 @@ JOB_ID=48c66c6002964721be537cdc6ce0297b
 BUILD_NO=$(codearts-cli build run $JOB_ID --branch main --build-type branch 2>/dev/null \
   | jq -r '.daily_build_number')
 
-# 3.（必要时）停止
+# 3. 查询步骤状态
+codearts-cli build status $JOB_ID $BUILD_NO
+
+# 4.（必要时）停止
 codearts-cli build stop $JOB_ID $BUILD_NO
 ```
 

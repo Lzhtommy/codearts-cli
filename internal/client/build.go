@@ -121,6 +121,29 @@ func (c *Client) ExecuteJob(ctx context.Context, body interface{}) (map[string]i
 	return out, nil
 }
 
+// ---------- ShowJobStepStatus ----------
+//
+// Reference: https://support.huaweicloud.com/api-codeci/ShowJobStepStatus.html
+// Endpoint: GET /v1/job/{job_id}/status?build_no={n}
+//
+// buildNo is optional — the API defaults to 1 when omitted. Pass 0 to rely on
+// the server default; any value >= 1 is sent as-is.
+func (c *Client) ShowJobStepStatus(ctx context.Context, jobID string, buildNo int) (map[string]interface{}, error) {
+	if jobID == "" {
+		return nil, fmt.Errorf("jobID is required")
+	}
+	path := fmt.Sprintf("/v1/job/%s/status", jobID)
+	q := url.Values{}
+	if buildNo > 0 {
+		q.Set("build_no", fmt.Sprintf("%d", buildNo))
+	}
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.BuildEndpoint(), path, q, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ---------- StopTheJob ----------
 //
 // Reference: https://support.huaweicloud.com/api-codeci/StopTheJob.html

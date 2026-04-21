@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 // RunPipelineRequest is the JSON body accepted by Huawei Cloud's
@@ -110,6 +111,32 @@ func (c *Client) ListPipelines(ctx context.Context, projectID string, body *List
 	}
 	out := map[string]interface{}{}
 	if err := c.Do(ctx, "POST", c.PipelineEndpoint(), path, nil, req, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ShowPipelineRunDetail queries the detail of a pipeline run instance.
+//
+// Reference: https://support.huaweicloud.com/api-pipeline/ShowPipelineRunDetail.html
+// Endpoint: GET /v5/{project_id}/api/pipelines/{pipeline_id}/pipeline-runs/detail
+//
+// pipelineRunID is optional. When empty, the API returns the latest run of the
+// pipeline; otherwise it is passed as the `pipeline_run_id` query parameter.
+func (c *Client) ShowPipelineRunDetail(ctx context.Context, projectID, pipelineID, pipelineRunID string) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	if pipelineID == "" {
+		return nil, fmt.Errorf("pipelineID is required")
+	}
+	path := fmt.Sprintf("/v5/%s/api/pipelines/%s/pipeline-runs/detail", projectID, pipelineID)
+	q := url.Values{}
+	if pipelineRunID != "" {
+		q.Set("pipeline_run_id", pipelineRunID)
+	}
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.PipelineEndpoint(), path, q, nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil

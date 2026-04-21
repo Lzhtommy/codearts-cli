@@ -1,7 +1,7 @@
 ---
 name: codearts-pipeline
 version: 0.1.1
-description: "CodeArts 流水线：列出流水线（ListPipelines）、启动流水线（RunPipeline）、停止流水线（StopPipelineRun）。当用户需要查看、触发或停止 CI/CD 流水线时使用。"
+description: "CodeArts 流水线：列出流水线（ListPipelines）、启动流水线（RunPipeline）、停止流水线（StopPipelineRun）、查询流水线运行详情（ShowPipelineRunDetail）。当用户需要查看、触发、停止或查询 CI/CD 流水线状态时使用。"
 metadata:
   category: "devops"
   requires:
@@ -118,6 +118,29 @@ codearts-cli pipeline stop <pipeline_id> <pipeline_run_id> --project-id <project
 | `--project-id`（必填） | 华为云项目 UUID |
 | `--dry-run` | 预览请求 |
 
+### pipeline status
+
+查询流水线运行实例详情（阶段、任务、制品、触发人、耗时等）。
+
+```bash
+# 查询指定 run
+codearts-cli pipeline status <pipeline_id> <pipeline_run_id> --project-id <project_id>
+
+# 省略 pipeline_run_id，返回最近一次运行
+codearts-cli pipeline status <pipeline_id> --project-id <project_id>
+```
+
+**API 参考**: [ShowPipelineRunDetail](https://support.huaweicloud.com/api-pipeline/ShowPipelineRunDetail.html)
+
+| 参数 | 说明 |
+| --- | --- |
+| `<pipeline_id>` | 流水线 ID |
+| `[pipeline_run_id]` | 可选；省略时返回最近一次运行 |
+| `--project-id`（必填） | 华为云项目 UUID |
+| `--dry-run` | 预览请求 |
+
+**返回值**：`status`、`start_time`、`end_time`、`run_number`、`stages`（各阶段 step 状态）、`sources`、`artifacts` 等。
+
 ## 典型工作流
 
 ```bash
@@ -128,7 +151,10 @@ codearts-cli pipeline list --project-id <proj>
 # 2. 触发
 RUN_ID=$(codearts-cli pipeline run <pid> --project-id <proj> 2>/dev/null | jq -r '.pipeline_run_id')
 
-# 3. 需要时停止
+# 3. 查询运行状态
+codearts-cli pipeline status <pid> $RUN_ID --project-id <proj>
+
+# 4. 需要时停止
 codearts-cli pipeline stop <pid> $RUN_ID --project-id <proj>
 ```
 

@@ -22,7 +22,81 @@ func newPipelineCmd() *cobra.Command {
 	cmd.AddCommand(newPipelineListCmd())
 	cmd.AddCommand(newPipelineRunCmd())
 	cmd.AddCommand(newPipelineStopCmd())
+	cmd.AddCommand(newPipelineStatusCmd())
 	return cmd
+}
+
+// ------------------------------ pipeline status ------------------------------
+
+type pipelineStatusOpts struct {
+	projectID  string
+	pipelineID string
+	runID      string
+	dryRun     bool
+}
+
+func newPipelineStatusCmd() *cobra.Command {
+	o := &pipelineStatusOpts{}
+	cmd := &cobra.Command{
+		Use:   "status <pipeline_id> [pipeline_run_id]",
+		Short: "Show pipeline run detail (ShowPipelineRunDetail API)",
+		Long: `Query the execution detail of a pipeline run.
+
+pipeline_id is required (positional). pipeline_run_id is optional — when
+omitted, the API returns the latest run of the pipeline.
+
+API reference: https://support.huaweicloud.com/api-pipeline/ShowPipelineRunDetail.html`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			o.pipelineID = args[0]
+			if len(args) == 2 {
+				o.runID = args[1]
+			}
+			return runPipelineStatus(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.projectID, "project-id", "", "(required) Huawei Cloud project_id")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit without calling the API")
+	return cmd
+}
+
+func runPipelineStatus(cmd *cobra.Command, o *pipelineStatusOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if o.projectID == "" {
+		return fmt.Errorf("--project-id is required for pipeline commands")
+	}
+	if o.dryRun {
+		q := map[string]interface{}{}
+		if o.runID != "" {
+			q["pipeline_run_id"] = o.runID
+		}
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":      "GET",
+			"project_id":  o.projectID,
+			"pipeline_id": o.pipelineID,
+			"path":        fmt.Sprintf("/v5/%s/api/pipelines/%s/pipeline-runs/detail", o.projectID, o.pipelineID),
+			"gateway":     cfg.Gateway,
+			"query":       q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ShowPipelineRunDetail(context.Background(), o.projectID, o.pipelineID, o.runID)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 // ------------------------------ pipeline list ------------------------------

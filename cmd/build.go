@@ -22,7 +22,84 @@ func newBuildCmd() *cobra.Command {
 	cmd.AddCommand(newBuildListCmd())
 	cmd.AddCommand(newBuildRunCmd())
 	cmd.AddCommand(newBuildStopCmd())
+	cmd.AddCommand(newBuildStatusCmd())
 	return cmd
+}
+
+// ------------------------------ build status ------------------------------
+
+type buildStatusOpts struct {
+	jobID   string
+	buildNo int
+	dryRun  bool
+}
+
+func newBuildStatusCmd() *cobra.Command {
+	o := &buildStatusOpts{}
+	cmd := &cobra.Command{
+		Use:   "status <job_id> [build_no]",
+		Short: "Show build step status (ShowJobStepStatus API)",
+		Long: `Show the step-level status of a build.
+
+<job_id> is the build task's 32-char ID.
+<build_no> is optional; when omitted, the API defaults to 1. Use the
+daily_build_number returned by ` + "`build run`" + ` to query a specific run.
+
+EXAMPLES:
+    codearts-cli build status <job_id>
+    codearts-cli build status <job_id> 42
+
+API reference: https://support.huaweicloud.com/api-codeci/ShowJobStepStatus.html`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			o.jobID = args[0]
+			if len(args) == 2 {
+				n, err := strconv.Atoi(args[1])
+				if err != nil || n < 1 {
+					return fmt.Errorf("build_no must be a positive integer (>= 1), got %q", args[1])
+				}
+				o.buildNo = n
+			}
+			return runBuildStatus(cmd, o)
+		},
+	}
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runBuildStatus(cmd *cobra.Command, o *buildStatusOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if o.dryRun {
+		q := map[string]interface{}{}
+		if o.buildNo > 0 {
+			q["build_no"] = o.buildNo
+		}
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":  "GET",
+			"path":    fmt.Sprintf("/v1/job/%s/status", o.jobID),
+			"job_id":  o.jobID,
+			"gateway": cfg.Gateway,
+			"query":   q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ShowJobStepStatus(context.Background(), o.jobID, o.buildNo)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 // ------------------------------ build list ------------------------------
