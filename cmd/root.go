@@ -33,6 +33,7 @@ QUICK START:
     codearts-cli issue batch-update --id a,b,c --category US
     codearts-cli issue relations <issue_id> --category US
     codearts-cli issue members
+    codearts-cli issue statuses 10020
 
     # 5. 代码托管 (CodeArts Repo)
     codearts-cli repo mr create  <repo_id> --title "..." --source feat/x --target main

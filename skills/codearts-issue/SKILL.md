@@ -1,7 +1,7 @@
 ---
 name: codearts-issue
-version: 0.1.2
-description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员。当用户需要管理 Bug/Task/US/Epic 等工作项或查看项目成员时使用。"
+version: 0.1.3
+description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员、查询工作项状态。当用户需要管理 Bug/Task/US/Epic 等工作项、查看项目成员或查询某工作项类型的状态定义时使用。"
 metadata:
   category: "devops"
   requires:
@@ -198,6 +198,27 @@ codearts-cli issue members
 - `role_id` / `role_name`（多个角色逗号分隔）
 
 > **典型用法**：给 `issue create` 找 `--assignee` 时，先跑 `issue members | jq '.result[] | {user_id, user_name, nick_name}'` 拿到真实的 user_id —— 不要把 tenant_id 当 user_id 传（格式都是 32 位 UUID 但含义不同，会触发 `PM.02177003 非目标项目成员`）。
+
+### issue statuses
+
+查询某个工作项类型（category_id）在项目里配置的状态定义。
+
+```bash
+codearts-cli issue statuses <category_id>
+```
+
+**API**: `GET /v1/ipdprojectservice/projects/{project_id}/category/{category_id}/statuses`
+
+| 参数 | 说明 |
+| --- | --- |
+| `<category_id>`（位置参数） | **5 位纯数字**工作项类型 ID，不是 RR/Bug/Task 字符串 |
+| `--dry-run` | 预览请求 |
+
+**有效 `category_id` 取值**（API 文档枚举）：`10001` / `10020` / `10021` / `10022` / `10023` / `10027` / `10028` / `10029` / `10033` / `10065`。
+
+> **注意**：字符串分类名（Bug/Task/US/…）与 `category_id` 的映射是项目级配置，不同项目不同 —— 不要硬编码。在 CodeArts Req 控制台 **工作项类型** 设置页或其它接口的返回里查一次，本地记下来。
+
+**返回值**：`result` 数组，每条含 `name`（状态名，如 "新建"/"开发中"/"已关闭"）与 `belonging`（生命周期分桶：`START` / `IN_PROGRESS` / `END`）。
 
 ## 常见错误
 

@@ -185,6 +185,31 @@ func (c *Client) ListProjectUsers(ctx context.Context, projectID string) (map[st
 	return out, nil
 }
 
+// ----- ListIssueStatues -----
+//
+// Reference: https://support.huaweicloud.com/api-projectman/ListIssueStatues.html
+// Endpoint:  GET /v1/ipdprojectservice/projects/{project_id}/category/{category_id}/statuses
+//
+// Returns the status definitions for a given work-item type (category_id is
+// the 5-digit numeric type ID, e.g. 10001/10020/10021/10022/10023/10027/
+// 10028/10029/10033/10065 — NOT the RR/Bug/Task string category).
+
+// ListIssueStatues returns the status definitions for a work-item type.
+func (c *Client) ListIssueStatues(ctx context.Context, projectID, categoryID string) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	if categoryID == "" {
+		return nil, fmt.Errorf("category_id is required (5-digit numeric work-item type ID)")
+	}
+	path := fmt.Sprintf("/v1/ipdprojectservice/projects/%s/category/%s/statuses", projectID, categoryID)
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.ProjectManEndpoint(), path, nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ----- BatchUpdateIpdIssues -----
 //
 // Reference: https://support.huaweicloud.com/api-projectman/BatchUpdateIpdIssues.html

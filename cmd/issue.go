@@ -24,7 +24,99 @@ func newIssueCmd() *cobra.Command {
 	cmd.AddCommand(newIssueBatchUpdateCmd())
 	cmd.AddCommand(newIssueRelationsCmd())
 	cmd.AddCommand(newIssueMembersCmd())
+	cmd.AddCommand(newIssueStatusesCmd())
 	return cmd
+}
+
+// ----------------------- issue statuses -----------------------
+
+type issueStatusesOpts struct {
+	categoryID string
+	dryRun     bool
+}
+
+func newIssueStatusesCmd() *cobra.Command {
+	o := &issueStatusesOpts{}
+	cmd := &cobra.Command{
+		Use:   "statuses <category_id>",
+		Short: "List status definitions for a work-item type (ListIssueStatues)",
+		Long: `List the status definitions configured on a work-item type in the
+current project.
+
+<category_id> is the 5-digit **numeric** work-item type ID (NOT the
+RR/Bug/Task string). Valid IDs per the API:
+    10001, 10020, 10021, 10022, 10023, 10027, 10028, 10029, 10033, 10065
+The exact name→id mapping is project-specific — look it up in the CodeArts
+Req console (工作项类型 settings) or in the API response of a prior query.
+
+Each returned status includes:
+  - name       — human-readable status label
+  - belonging  — lifecycle bucket: START | IN_PROGRESS | END
+
+EXAMPLES:
+    codearts-cli issue statuses 10020          # statuses of type 10020
+    codearts-cli issue statuses 10001 --dry-run
+
+API reference: https://support.huaweicloud.com/api-projectman/ListIssueStatues.html`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			o.categoryID = args[0]
+			return runIssueStatuses(cmd, o)
+		},
+	}
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runIssueStatuses(cmd *cobra.Command, o *issueStatusesOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := cfg.ProjectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
+	}
+	if !isFiveDigit(o.categoryID) {
+		return fmt.Errorf("category_id must be a 5-digit numeric ID (e.g. 10020), got %q", o.categoryID)
+	}
+	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":      "GET",
+			"path":        fmt.Sprintf("/v1/ipdprojectservice/projects/%s/category/%s/statuses", projectID, o.categoryID),
+			"project_id":  projectID,
+			"category_id": o.categoryID,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListIssueStatues(context.Background(), projectID, o.categoryID)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
+}
+
+// isFiveDigit reports whether s is exactly five ASCII digits. Keeps the
+// regex-in-the-API-spec check local and dependency-free.
+func isFiveDigit(s string) bool {
+	if len(s) != 5 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // ----------------------- issue relations -----------------------
