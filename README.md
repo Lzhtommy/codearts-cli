@@ -4,7 +4,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
 [![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
 
-华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管三大模块共 10 个接口，配套 4 个 AI Agent [Skills](./skills/)。
+华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 14 个接口，配套 5 个 AI Agent [Skills](./skills/)。
 
 [安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [测试](#测试) · [架构](#项目结构) · [贡献](#贡献)
 
@@ -12,7 +12,7 @@
 
 - **Agent-Native 设计** — 4 个结构化 [Skills](./skills/)，兼容 Claude Code / Cursor / Codex / Gemini CLI 等主流 AI 工具
 - **轻量零依赖** — 不引入 huaweicloud-sdk-go-v3（几十 MB），自研 AK/SK 签名（SDK-HMAC-SHA256），单一二进制 ~3 MB
-- **三模块十接口** — 流水线、工作项、代码托管，一条命令触发 CI/CD、管理 Bug、创建 MR
+- **四模块十四接口** — 流水线、工作项、代码托管、编译构建，一条命令触发 CI/CD、管理 Bug、创建 MR、跑编译
 - **Debug 友好** — 所有命令支持 `--dry-run`，预览 method / path / body 不发请求
 - **安全可控** — AK/SK 存储 `0600` 权限，`config show` 自动脱敏，CI 场景用 `--sk-stdin` 防泄露
 - **开源即用** — MIT 协议，`npm install` 一行安装
@@ -31,6 +31,10 @@
 | 🔀 代码托管 | `repo list`          | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
 | 🔀 代码托管 | `repo mr create`     | CreateMergeRequest                 | 创建合并请求             |
 | 🔀 代码托管 | `repo mr comment`    | CreateMergeRequestDiscussion       | 创建 MR 检视意见         |
+| 🔀 代码托管 | `repo member list`   | ListMembers                        | 查询仓库成员列表         |
+| 🛠️ 编译构建 | `build list`         | ListProjectJobs                    | 查询项目构建任务列表     |
+| 🛠️ 编译构建 | `build run`          | ExecuteJob                         | 触发构建                 |
+| 🛠️ 编译构建 | `build stop`         | StopTheJob                         | 停止运行中的构建         |
 
 ## 安装
 
@@ -123,7 +127,8 @@ codearts-cli issue list --issue-type Bug --dry-run
 | `codearts-shared`    | 配置初始化、凭证管理、通用标志、端点解析、错误处理（被其它 skill 自动引用）       |
 | `codearts-pipeline`  | 流水线列表 / 启动 / 停止                                                          |
 | `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新                                              |
-| `codearts-repo`      | 仓库列表 / MR 创建 / MR 检视意见                                                 |
+| `codearts-repo`      | 仓库列表 / MR 创建 / MR 检视意见 / 仓库成员                                      |
+| `codearts-build`     | 构建任务列表 / 触发构建 / 停止构建                                               |
 
 ```bash
 # 安装全部 skills
@@ -319,6 +324,84 @@ codearts-cli repo mr create 8147520 \
 codearts-cli repo mr comment 8147520 15 --body "LGTM" --severity suggestion
 ```
 
+#### `repo member list <repo_id>` — 查询仓库成员
+
+```bash
+# 所有成员
+codearts-cli repo member list 8147520
+
+# 搜索 + 分页
+codearts-cli repo member list 8147520 --search "zhang" --offset 0 --limit 50
+
+# 按权限点过滤（如：有 code push 权限的成员）
+codearts-cli repo member list 8147520 --permission code --action push
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--search` | 在 user_name / nick_name / tenant_name 上模糊匹配 |
+| `--offset` / `--limit` | 分页（默认 offset=0，limit=20，limit 上限 100） |
+| `--permission` | `repository` / `code` / `member` / `branch` / `tag` / `mr` / `label` |
+| `--action` | 动作（需配合 `--permission`；取值随权限点不同，详见 skill 文档） |
+
+### 编译构建
+
+> `build list` 需要 `--project-id`（项目 UUID）。`build run` / `build stop` 使用 `<job_id>`（构建任务 ID，从 `build list` 返回值的 `id` 字段取）。
+
+#### `build list` — 查询构建任务
+
+```bash
+# 列出项目下所有构建任务
+codearts-cli build list --project-id <proj>
+
+# 按名称 / 创建人模糊搜索 + 分页
+codearts-cli build list --project-id <proj> --search "backend" \
+  --page-index 0 --page-size 50
+
+# 按最近一次构建状态过滤
+codearts-cli build list --project-id <proj> --build-status red
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--project-id`（必填） | 项目 UUID |
+| `--page-index` / `--page-size` | 分页（默认 0 / 10，page-size 上限 100） |
+| `--search` | 任务名 / 创建人模糊匹配 |
+| `--sort-field` / `--sort-order` | 排序 |
+| `--creator-id` | 按创建人 user_id 过滤 |
+| `--build-status` | `red` / `blue` / `timeout` / `aborted` / `building` / `none` |
+| `--by-group` / `--group-path-id` | 分组查看 |
+
+#### `build run <job_id>` — 触发构建
+
+```bash
+# 用任务默认参数触发
+codearts-cli build run 48c66c6002964721be537cdc6ce0297b
+
+# 覆盖分支 + 带参数 + 指定代码源
+codearts-cli build run <job_id> \
+  --branch main --build-type branch --scm-type codehub --repo-id 8147520 \
+  --param "ENV=staging" --param "VERSION=1.2.0"
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--param KEY=VAL` | 构建参数（可重复或逗号分隔） |
+| `--branch` / `--build-tag` / `--commit-id` | scm 源覆盖 |
+| `--build-type` | `branch` / `tag` / `commitId` |
+| `--scm-type` / `--repo-id` / `--repo-name` | 代码源：`default` / `codehub` |
+| `--body-json` / `--body-file` | 完整 JSON body |
+
+**返回值**包含 `daily_build_number`（后续 `build stop` 需要的 build_no）和 `actual_build_number`。
+
+#### `build stop <job_id> <build_no>` — 停止构建
+
+```bash
+codearts-cli build stop 48c66c6002964721be537cdc6ce0297b 105
+```
+
+`<build_no>` 是**单次构建序号**（从 1 递增），来自 `build run` 返回值或构建历史面板，**不要**和 `job_id` 混淆。
+
 ## 高级用法
 
 ### Dry Run
@@ -332,7 +415,7 @@ codearts-cli issue create --title "x" --description "x" --category Bug --dry-run
 
 ### 网关
 
-所有服务（流水线 / 工作项 / 代码托管）统一走 `config.json` 中的 `gateway` 字段，默认 `http://10.250.63.100:8099`。切换网关：
+所有服务（流水线 / 工作项 / 代码托管 / 编译构建）统一走 `config.json` 中的 `gateway` 字段，默认 `http://10.250.63.100:8099`。切换网关：
 
 ```bash
 codearts-cli config set gateway http://<your-gateway>:<port>
@@ -344,7 +427,8 @@ codearts-cli config set gateway http://<your-gateway>:<port>
 | ---------- | -------------- | ----------------------- |
 | 流水线     | **必填**       | 不读                    |
 | 工作项管理 | 不支持         | **必读**                |
-| 代码托管   | `repo list` 必填；`mr` 命令走 `repo_id` | `repo list` 不读 |
+| 代码托管   | `repo list` 必填；`mr` / `member` 命令走 `repo_id` | `repo list` 不读 |
+| 编译构建   | `build list` 必填；`run` / `stop` 走 `job_id` | 不读 |
 
 > **提示**：在 CodeArts Repo 克隆的仓库目录下，可从 `git remote -v` 自动提取 project-id：
 > ```bash
@@ -398,7 +482,8 @@ codearts-cli/
 │   ├── codearts-shared/SKILL.md      # AI Skill: 配置 / 认证 / 通用
 │   ├── codearts-pipeline/SKILL.md    # AI Skill: 流水线
 │   ├── codearts-issue/SKILL.md       # AI Skill: 工作项
-│   └── codearts-repo/SKILL.md        # AI Skill: 代码托管
+│   ├── codearts-repo/SKILL.md        # AI Skill: 代码托管
+│   └── codearts-build/SKILL.md       # AI Skill: 编译构建
 ├── tests/
 │   ├── client/                       # 签名 + HTTP 客户端测试
 │   ├── core/                         # 配置测试
@@ -409,7 +494,8 @@ codearts-cli/
 │   ├── config.go                     # config init / show / path / set
 │   ├── pipeline.go                   # pipeline list / run / stop
 │   ├── issue.go                      # issue list / show / create / batch-update
-│   └── repo.go                       # repo list / mr create / mr comment
+│   ├── repo.go                       # repo list / mr create / mr comment / member list
+│   └── build.go                      # build list / run / stop
 └── internal/
     ├── core/config.go                # 配置加载 / 保存（~/.codearts-cli/config.json）
     ├── client/
@@ -417,7 +503,8 @@ codearts-cli/
     │   ├── client.go                 # HTTP 封装 + 三服务端点推导
     │   ├── pipeline.go               # 流水线 API
     │   ├── projectman.go             # 工作项 API
-    │   └── repo.go                   # 代码托管 API
+    │   ├── repo.go                   # 代码托管 API
+    │   └── build.go                  # 编译构建 API
     └── output/output.go              # JSON 输出 + 成功 / 错误消息
 ```
 

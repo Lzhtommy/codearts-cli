@@ -24,6 +24,7 @@ const (
 	hostPipeline   = "cloudpipeline-ext.cn-south-1.myhuaweicloud.com"
 	hostProjectMan = "projectman-ext.cn-south-1.myhuaweicloud.com"
 	hostRepo       = "codehub-ext.cn-south-1.myhuaweicloud.com"
+	hostBuild      = "cloudbuild-ext.cn-south-1.myhuaweicloud.com"
 )
 
 // Client is a thin HTTP wrapper for Huawei Cloud CodeArts APIs with AK/SK
@@ -90,6 +91,11 @@ func (c *Client) ProjectManEndpoint() string {
 // RepoEndpoint returns the signing-time base URL for CodeArts Repo.
 func (c *Client) RepoEndpoint() string {
 	return "https://" + hostRepo
+}
+
+// BuildEndpoint returns the signing-time base URL for CodeArts Build (CodeCI).
+func (c *Client) BuildEndpoint() string {
+	return "https://" + hostBuild
 }
 
 // Do builds, signs, and sends a request to the given endpoint+path and

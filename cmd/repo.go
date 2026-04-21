@@ -38,7 +38,137 @@ func newRepoCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newRepoListCmd())
 	cmd.AddCommand(newRepoMRCmd())
+	cmd.AddCommand(newRepoMemberCmd())
 	return cmd
+}
+
+// ----------------------- repo member -----------------------
+
+func newRepoMemberCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "member",
+		Short: "Repository member operations",
+	}
+	cmd.AddCommand(newRepoMemberListCmd())
+	return cmd
+}
+
+type memberListOpts struct {
+	repoID     int
+	search     string
+	offset     int
+	limit      int
+	permission string
+	action     string
+	dryRun     bool
+}
+
+func newRepoMemberListCmd() *cobra.Command {
+	o := &memberListOpts{}
+	cmd := &cobra.Command{
+		Use:   "list <repository_id>",
+		Short: "List members of a repository (ListMembers API)",
+		Long: `List members of a CodeArts repository.
+
+<repository_id> is the numeric repository ID (int), not a UUID. Get it
+from ` + "`codearts-cli repo list --project-id <proj>`" + `.
+
+Returned fields include user_id, user_name, user_nick_name, tenant_name,
+repository_role_name, and service_license_status (0=stopped, 1=active).
+
+Filter by permission point + action (both enum):
+    permission: repository | code | member | branch | tag | mr | label
+    action    : per-permission, e.g. code→push/download,
+                                  mr→create/update/comment/review/approve/merge/close/reopen,
+                                  repository→create/fork/delete/setting,
+                                  member/branch/tag/label→create/update/delete
+
+EXAMPLES:
+    # List all members
+    codearts-cli repo member list 8147520
+
+    # Search by name / nickname / tenant
+    codearts-cli repo member list 8147520 --search "zhang"
+
+    # Paginate
+    codearts-cli repo member list 8147520 --offset 20 --limit 50
+
+    # Only members with push permission on code
+    codearts-cli repo member list 8147520 --permission code --action push
+
+API reference: https://support.huaweicloud.com/api-codeartsrepo/ListMembers.html`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v, err := ParseRepoID(args[0])
+			if err != nil {
+				return err
+			}
+			o.repoID = v
+			return runRepoMemberList(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.search, "search", "", "Fuzzy match on user_name / nick_name / tenant_name")
+	cmd.Flags().IntVar(&o.offset, "offset", 0, "Pagination offset (0-based, 0 = API default)")
+	cmd.Flags().IntVar(&o.limit, "limit", 0, "Results per page (1-100, 0 = API default 20)")
+	cmd.Flags().StringVar(&o.permission, "permission", "", "Permission point filter (repository|code|member|branch|tag|mr|label)")
+	cmd.Flags().StringVar(&o.action, "action", "", "Permission action filter (depends on --permission)")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runRepoMemberList(cmd *cobra.Command, o *memberListOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if (o.action != "") && (o.permission == "") {
+		return fmt.Errorf("--action requires --permission (the action enum is scoped to a permission point)")
+	}
+	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		q := map[string]interface{}{}
+		if o.search != "" {
+			q["search"] = o.search
+		}
+		if o.offset > 0 {
+			q["offset"] = o.offset
+		}
+		if o.limit > 0 {
+			q["limit"] = o.limit
+		}
+		if o.permission != "" {
+			q["permission"] = o.permission
+		}
+		if o.action != "" {
+			q["action"] = o.action
+		}
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":        "GET",
+			"path":          fmt.Sprintf("/v4/repositories/%d/members", o.repoID),
+			"repository_id": o.repoID,
+			"query":         q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListMembers(context.Background(), o.repoID, &client.ListMembersRequest{
+		Search:     o.search,
+		Offset:     o.offset,
+		Limit:      o.limit,
+		Permission: o.permission,
+		Action:     o.action,
+	})
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 // ----------------------- repo list -----------------------

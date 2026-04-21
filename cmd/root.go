@@ -35,6 +35,12 @@ QUICK START:
     # 5. 代码托管 (CodeArts Repo)
     codearts-cli repo mr create  <repo_id> --title "..." --source feat/x --target main
     codearts-cli repo mr comment <repo_id> <mr_iid> --body "LGTM"
+    codearts-cli repo member list <repo_id>
+
+    # 6. 编译构建 (CodeArts Build)
+    codearts-cli build list --project-id <proj>
+    codearts-cli build run  <job_id> --branch main --build-type branch
+    codearts-cli build stop <job_id> <build_no>
 
 DEFAULTS:
     project_id  cd130bd8357b4e7ab293a7979d1c8711
@@ -57,6 +63,7 @@ func Execute() int {
 	root.AddCommand(newPipelineCmd())
 	root.AddCommand(newIssueCmd())
 	root.AddCommand(newRepoCmd())
+	root.AddCommand(newBuildCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)

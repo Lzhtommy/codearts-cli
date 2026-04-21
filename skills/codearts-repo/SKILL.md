@@ -1,7 +1,7 @@
 ---
 name: codearts-repo
-version: 0.1.1
-description: "CodeArts 代码托管：查询仓库列表（ListRepositories）、创建合并请求（CreateMergeRequest）、创建 MR 检视意见（CreateMergeRequestDiscussion）。当用户需要查看仓库、创建 MR 或发代码评审意见时使用。"
+version: 0.1.2
+description: "CodeArts 代码托管：查询仓库列表（ListRepositories）、创建合并请求（CreateMergeRequest）、创建 MR 检视意见（CreateMergeRequestDiscussion）、查询仓库成员（ListMembers）。当用户需要查看仓库、创建 MR、发代码评审意见或查询仓库成员时使用。"
 metadata:
   category: "devops"
   requires:
@@ -163,6 +163,49 @@ codearts-cli repo mr comment <repo_id> <mr_iid> --body-file review.json
 | `--dry-run` | 预览请求 |
 
 *使用 `--body-json` / `--body-file` 时不需要此 flag。
+
+### repo member list
+
+查询仓库成员列表。`<repository_id>` 必须是**正整数**（不是 UUID）。
+
+```bash
+# 所有成员
+codearts-cli repo member list <repo_id>
+
+# 按用户名 / 昵称 / 租户名模糊搜索
+codearts-cli repo member list <repo_id> --search "zhang"
+
+# 分页（offset 从 0 开始，limit 1-100，默认 20）
+codearts-cli repo member list <repo_id> --offset 20 --limit 50
+
+# 按权限点 + 动作过滤（如：有 code push 权限的成员）
+codearts-cli repo member list <repo_id> --permission code --action push
+```
+
+**API**: `GET /v4/repositories/{repository_id}/members`
+
+| Flag | 说明 |
+| --- | --- |
+| `--search` | 在 user_name / user_nick_name / tenant_name 上模糊匹配 |
+| `--offset` | 分页偏移（0-based，默认 0） |
+| `--limit` | 每页条数（1-100，默认 20） |
+| `--permission` | 权限点：`repository` / `code` / `member` / `branch` / `tag` / `mr` / `label` |
+| `--action` | 动作（需配合 `--permission`，取值随权限点不同） |
+| `--dry-run` | 预览请求 |
+
+**`--action` 取值**（按 `--permission` 分）：
+
+| permission | action |
+| --- | --- |
+| `repository` | `create` / `fork` / `delete` / `setting` |
+| `code` | `push` / `download` |
+| `member` | `create` / `update` / `delete` |
+| `branch` | `create` / `delete` |
+| `tag` | `create` / `delete` |
+| `mr` | `create` / `update` / `comment` / `review` / `approve` / `merge` / `close` / `reopen` |
+| `label` | `create` / `update` / `delete` |
+
+**返回值**：成员 DTO 数组，字段包括 `user_id`、`user_name`、`user_nick_name`、`tenant_name`、`repository_role_name`、`service_license_status`（0=停用 / 1=正常）等。
 
 ## 典型工作流
 

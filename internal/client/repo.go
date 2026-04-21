@@ -32,6 +32,57 @@ func (c *Client) ListRepositories(ctx context.Context, projectUUID string, pageI
 	return out, nil
 }
 
+// ListMembersRequest bundles the query parameters for ListMembers.
+// All fields are optional — the API applies defaults (offset=0, limit=20)
+// when unset. Leave Permission/Action empty unless scoping to a specific
+// permission point; both must be valid enum values (see the API ref).
+type ListMembersRequest struct {
+	Search     string
+	Offset     int
+	Limit      int
+	Permission string // repository | code | member | branch | tag | mr | label
+	Action     string // per-permission action, e.g. code→push/download, mr→merge/review/...
+}
+
+// ListMembers queries members of a repository.
+//
+// Reference: https://support.huaweicloud.com/api-codeartsrepo/ListMembers.html
+// Endpoint:  GET /v4/repositories/{repository_id}/members
+//
+// The response body is an array of member DTOs, so the return type is a
+// free-form interface{} (callers dump it via output.PrintJSON). The total
+// count is carried in an X-Total response header that Do does not surface
+// — rely on len() of the returned slice for now.
+func (c *Client) ListMembers(ctx context.Context, repositoryID int, req *ListMembersRequest) (interface{}, error) {
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("repository_id must be a positive integer")
+	}
+	path := fmt.Sprintf("/v4/repositories/%d/members", repositoryID)
+	q := url.Values{}
+	if req != nil {
+		if req.Search != "" {
+			q.Set("search", req.Search)
+		}
+		if req.Offset > 0 {
+			q.Set("offset", fmt.Sprintf("%d", req.Offset))
+		}
+		if req.Limit > 0 {
+			q.Set("limit", fmt.Sprintf("%d", req.Limit))
+		}
+		if req.Permission != "" {
+			q.Set("permission", req.Permission)
+		}
+		if req.Action != "" {
+			q.Set("action", req.Action)
+		}
+	}
+	var out interface{}
+	if err := c.Do(ctx, "GET", c.RepoEndpoint(), path, q, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CreateMergeRequest creates a merge request on a repository.
 //
 // Reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html
