@@ -4,7 +4,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
 [![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
 
-华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 14 个接口，配套 5 个 AI Agent [Skills](./skills/)。
+华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 16 个接口，配套 5 个 AI Agent [Skills](./skills/)。
 
 [安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [测试](#测试) · [架构](#项目结构) · [贡献](#贡献)
 
@@ -12,7 +12,7 @@
 
 - **Agent-Native 设计** — 4 个结构化 [Skills](./skills/)，兼容 Claude Code / Cursor / Codex / Gemini CLI 等主流 AI 工具
 - **轻量零依赖** — 不引入 huaweicloud-sdk-go-v3（几十 MB），自研 AK/SK 签名（SDK-HMAC-SHA256），单一二进制 ~3 MB
-- **四模块十四接口** — 流水线、工作项、代码托管、编译构建，一条命令触发 CI/CD、管理 Bug、创建 MR、跑编译
+- **四模块十六接口** — 流水线、工作项、代码托管、编译构建，一条命令触发 CI/CD、管理 Bug、创建 MR、跑编译
 - **Debug 友好** — 所有命令支持 `--dry-run`，预览 method / path / body 不发请求
 - **安全可控** — AK/SK 存储 `0600` 权限，`config show` 自动脱敏，CI 场景用 `--sk-stdin` 防泄露
 - **开源即用** — MIT 协议，`npm install` 一行安装
@@ -28,6 +28,8 @@
 | 📋 工作项  | `issue show`         | ShowIssueDetail                    | 查询工作项详情           |
 | 📋 工作项  | `issue create`       | CreateIpdProjectIssue              | 创建工作项               |
 | 📋 工作项  | `issue batch-update` | BatchUpdateIpdIssues               | 批量更新工作项           |
+| 📋 工作项  | `issue relations`    | ListE2EGraphsOpenAPI               | 查询工作项关联（E2E 图） |
+| 📋 工作项  | `issue members`      | ListProjectUsers                   | 查询项目成员             |
 | 🔀 代码托管 | `repo list`          | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
 | 🔀 代码托管 | `repo mr create`     | CreateMergeRequest                 | 创建合并请求             |
 | 🔀 代码托管 | `repo mr comment`    | CreateMergeRequestDiscussion       | 创建 MR 检视意见         |
@@ -126,7 +128,7 @@ codearts-cli issue list --issue-type Bug --dry-run
 | -------------------- | --------------------------------------------------------------------------------- |
 | `codearts-shared`    | 配置初始化、凭证管理、通用标志、端点解析、错误处理（被其它 skill 自动引用）       |
 | `codearts-pipeline`  | 流水线列表 / 启动 / 停止                                                          |
-| `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新                                              |
+| `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新 / 关联追溯 / 项目成员                        |
 | `codearts-repo`      | 仓库列表 / MR 创建 / MR 检视意见 / 仓库成员                                      |
 | `codearts-build`     | 构建任务列表 / 触发构建 / 停止构建                                               |
 
@@ -280,6 +282,22 @@ codearts-cli issue create --title "修复登录超时" --description "..." --cat
 ```bash
 codearts-cli issue batch-update --id 111,222,333 --category Bug --attribute '{"priority":"中"}'
 ```
+
+#### `issue relations <issue_id>` — 查询工作项关联（E2E 图）
+
+```bash
+codearts-cli issue relations 1251275102548402177 --category US
+```
+
+返回父/子工作项、关联的 commits / MR / 分支 / 测试用例 / 文档。`--is-src true|false` 用于跨项目查询。
+
+#### `issue members` — 查询项目成员
+
+```bash
+codearts-cli issue members
+```
+
+返回 `config.projectId` 下的所有成员，每条包含 `user_id`（32 位 UUID，可用作 `issue create --assignee`）、`user_name`、`nick_name`、`role_name`。
 
 ### 代码托管
 
@@ -493,7 +511,7 @@ codearts-cli/
 │   ├── root.go                       # 根命令
 │   ├── config.go                     # config init / show / path / set
 │   ├── pipeline.go                   # pipeline list / run / stop
-│   ├── issue.go                      # issue list / show / create / batch-update
+│   ├── issue.go                      # issue list / show / create / batch-update / relations / members
 │   ├── repo.go                       # repo list / mr create / mr comment / member list
 │   └── build.go                      # build list / run / stop
 └── internal/

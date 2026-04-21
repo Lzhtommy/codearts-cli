@@ -1,7 +1,7 @@
 ---
 name: codearts-issue
-version: 0.1.1
-description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新。当用户需要管理 Bug/Task/US/Epic 等工作项时使用。"
+version: 0.1.2
+description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员。当用户需要管理 Bug/Task/US/Epic 等工作项或查看项目成员时使用。"
 metadata:
   category: "devops"
   requires:
@@ -148,6 +148,56 @@ codearts-cli issue batch-update \
 | `--dry-run` | 预览请求 |
 
 *category 也可在 `--attribute` JSON 中提供。
+
+### issue relations
+
+查询工作项的端到端追溯关系（E2E 图）——父/子工作项、关联提交 / MR / 分支 / 测试用例 / 测试计划 / 文档。
+
+```bash
+# 查询一个 US 的追溯图
+codearts-cli issue relations <issue_id> --category US
+
+# 跨项目（上游 / 下游）
+codearts-cli issue relations <issue_id> --category Bug --is-src true
+```
+
+**API**: `GET /v1/ipdprojectservice/projects/{project_id}/e2e/graphs?issue_id=&category=&is_src=`
+
+| Flag | 说明 |
+| --- | --- |
+| `<issue_id>`（位置参数） | 18–19 位数字 ID（不是控制台看到的 `number` 短号，是 API 返回的 `id` 字段） |
+| `--category`（必填） | RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE |
+| `--is-src` | `true` / `false`，跨项目查询方向；省略则按 API 默认 |
+| `--dry-run` | 预览请求 |
+
+**返回值**：`id`、`project_id`、`domain_id`、`category`、`number`、`status`（初始/分析/测试/开发/完成）、`title`，以及 `trace_list` 数组 —— 元素包含：
+- `parent_issues` / `child_issues` — 父/子工作项
+- `associate_workitems` — 关联的其它工作项
+- `associate_commits` / `associate_branches` / `associate_mergerequest` — 关联的代码资产
+- `associate_testcases` / `associate_testplans` — 关联的测试资产
+- `associate_documents` — 关联的文档
+
+### issue members
+
+查询当前 `projectId` 下的所有项目成员。
+
+```bash
+codearts-cli issue members
+```
+
+**API**: `GET /v1/ipdprojectservice/projects/{project_id}/users`
+
+| Flag | 说明 |
+| --- | --- |
+| `--dry-run` | 预览请求 |
+
+**返回值**：`result` 数组，每条 `UserVO` 包含：
+- `user_id`（**32 位 UUID**，用于 `issue create --assignee` 和 `issue list --filter` 的 assignee 字段）
+- `user_num_id`（整数短 ID）
+- `user_name`、`nick_name`、`domain_id`、`domain_name`（租户名）
+- `role_id` / `role_name`（多个角色逗号分隔）
+
+> **典型用法**：给 `issue create` 找 `--assignee` 时，先跑 `issue members | jq '.result[] | {user_id, user_name, nick_name}'` 拿到真实的 user_id —— 不要把 tenant_id 当 user_id 传（格式都是 32 位 UUID 但含义不同，会触发 `PM.02177003 非目标项目成员`）。
 
 ## 常见错误
 

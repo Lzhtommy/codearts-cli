@@ -22,7 +22,170 @@ func newIssueCmd() *cobra.Command {
 	cmd.AddCommand(newIssueShowCmd())
 	cmd.AddCommand(newIssueCreateCmd())
 	cmd.AddCommand(newIssueBatchUpdateCmd())
+	cmd.AddCommand(newIssueRelationsCmd())
+	cmd.AddCommand(newIssueMembersCmd())
 	return cmd
+}
+
+// ----------------------- issue relations -----------------------
+
+type issueRelationsOpts struct {
+	issueID  string
+	category string
+	isSrc    string // "" | "true" | "false" — tri-state passthrough
+	dryRun   bool
+}
+
+func newIssueRelationsCmd() *cobra.Command {
+	o := &issueRelationsOpts{}
+	cmd := &cobra.Command{
+		Use:   "relations <issue_id>",
+		Short: "Query E2E trace graph for a work item (ListE2EGraphsOpenAPI)",
+		Long: `Return the end-to-end trace graph for a work item: parent/child
+issues, associated work items, commits, MRs, branches, testcases, testplans,
+and documents.
+
+<issue_id> must be the 18-19 digit numeric issue ID, not the short number
+visible in the console (that is ` + "`number`" + ` — use the API response ` + "`id`" + ` field).
+
+EXAMPLES:
+    # Traces for a User Story
+    codearts-cli issue relations 1251275102548402177 --category US
+
+    # Cross-project query (src = upstream / dst = downstream)
+    codearts-cli issue relations 1251275102548402177 --category Bug --is-src true
+
+API reference: https://support.huaweicloud.com/api-projectman/ListE2EGraphsOpenAPI.html`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			o.issueID = args[0]
+			return runIssueRelations(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.category, "category", "", "(required) Issue category: RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE")
+	cmd.Flags().StringVar(&o.isSrc, "is-src", "", "Cross-project direction (true|false); omit to let the API decide")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runIssueRelations(cmd *cobra.Command, o *issueRelationsOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := cfg.ProjectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
+	}
+	if o.category == "" {
+		return fmt.Errorf("--category is required (one of RR/SF/IR/SR/AR/Task/Bug/US/Epic/FE)")
+	}
+	var isSrc *bool
+	switch strings.ToLower(strings.TrimSpace(o.isSrc)) {
+	case "":
+		// omit
+	case "true", "1", "yes":
+		v := true
+		isSrc = &v
+	case "false", "0", "no":
+		v := false
+		isSrc = &v
+	default:
+		return fmt.Errorf("--is-src must be true or false, got %q", o.isSrc)
+	}
+
+	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		q := map[string]interface{}{
+			"issue_id": o.issueID,
+			"category": o.category,
+		}
+		if isSrc != nil {
+			q["is_src"] = *isSrc
+		}
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":     "GET",
+			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/e2e/graphs", projectID),
+			"project_id": projectID,
+			"query":      q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListE2EGraphs(context.Background(), projectID, o.issueID, o.category, isSrc)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
+}
+
+// ----------------------- issue members -----------------------
+
+type issueMembersOpts struct {
+	dryRun bool
+}
+
+func newIssueMembersCmd() *cobra.Command {
+	o := &issueMembersOpts{}
+	cmd := &cobra.Command{
+		Use:   "members",
+		Short: "List project members (ListProjectUsers)",
+		Long: `List all members of the configured project.
+
+Project is taken from config.projectId — set it with
+` + "`codearts-cli config set projectId <uuid>`" + ` if unset.
+
+Each returned user includes user_id / user_name / nick_name / role_name;
+user_id is the 32-char UUID you need for --assignee on ` + "`issue create`" + `
+and for assignee filters on ` + "`issue list`" + `.
+
+API reference: https://support.huaweicloud.com/api-projectman/ListProjectUsers.html`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runIssueMembers(cmd, o)
+		},
+	}
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runIssueMembers(cmd *cobra.Command, o *issueMembersOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := cfg.ProjectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
+	}
+	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":     "GET",
+			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/users", projectID),
+			"project_id": projectID,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListProjectUsers(context.Background(), projectID)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 // ----------------------- issue list -----------------------

@@ -122,6 +122,69 @@ func (c *Client) CreateIpdProjectIssue(ctx context.Context, projectID string, bo
 	return out, nil
 }
 
+// ----- ListE2EGraphsOpenAPI -----
+//
+// Reference: https://support.huaweicloud.com/api-projectman/ListE2EGraphsOpenAPI.html
+// Endpoint:  GET /v1/ipdprojectservice/projects/{project_id}/e2e/graphs?issue_id=&category=&is_src=
+//
+// Returns the end-to-end trace graph (trace_list) for a single work item —
+// parent/child issues, associated commits/MRs, branches, testcases, etc.
+
+// ListE2EGraphs fetches the E2E trace graph for one work item.
+// issueID must match the API regex (18–19 digits); category is one of
+// RR/SF/IR/SR/AR/Task/Bug/Epic/FE/US. isSrc is a tri-state pointer: pass
+// nil to omit, or a bool pointer to explicitly include is_src=true/false
+// for cross-project queries.
+func (c *Client) ListE2EGraphs(ctx context.Context, projectID, issueID, category string, isSrc *bool) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	if issueID == "" {
+		return nil, fmt.Errorf("issue_id is required")
+	}
+	if category == "" {
+		return nil, fmt.Errorf("category is required (e.g. US, Task, Bug)")
+	}
+	path := fmt.Sprintf("/v1/ipdprojectservice/projects/%s/e2e/graphs", projectID)
+	q := url.Values{
+		"issue_id": {issueID},
+		"category": {category},
+	}
+	if isSrc != nil {
+		if *isSrc {
+			q.Set("is_src", "true")
+		} else {
+			q.Set("is_src", "false")
+		}
+	}
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.ProjectManEndpoint(), path, q, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ----- ListProjectUsers -----
+//
+// Reference: https://support.huaweicloud.com/api-projectman/ListProjectUsers.html
+// Endpoint:  GET /v1/ipdprojectservice/projects/{project_id}/users
+//
+// Returns the member list (user_id, user_name, nick_name, role_name, …) for
+// a project. No query params.
+
+// ListProjectUsers queries project members.
+func (c *Client) ListProjectUsers(ctx context.Context, projectID string) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	path := fmt.Sprintf("/v1/ipdprojectservice/projects/%s/users", projectID)
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.ProjectManEndpoint(), path, nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ----- BatchUpdateIpdIssues -----
 //
 // Reference: https://support.huaweicloud.com/api-projectman/BatchUpdateIpdIssues.html
