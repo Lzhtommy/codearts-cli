@@ -12,9 +12,9 @@ PREFIX ?= /usr/local
 BINDIR := $(PREFIX)/bin
 PKG    := .
 
-# Embed a build-time version if the user set one (fallback to 0.1.0 in code).
+# Embed a build-time version (fallback is "dev" in cmd/root.go).
 VERSION ?= $(shell git describe --tags --dirty 2>/dev/null)
-LDFLAGS := -s -w $(if $(VERSION),-X main.version=$(VERSION),)
+LDFLAGS := -s -w $(if $(VERSION),-X github.com/Lzhtommy/codearts-cli/cmd.version=$(VERSION),)
 
 .PHONY: build install uninstall run clean tidy vet dist npm-pack npm-link
 

@@ -8,7 +8,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const version = "0.1.0"
+// version is overridden at build time via -ldflags "-X github.com/Lzhtommy/codearts-cli/cmd.version=<ver>".
+// Keep as var (not const) so the linker flag can take effect.
+var version = "dev"
 
 const rootLong = `codearts-cli — Huawei Cloud CodeArts CLI.
 
