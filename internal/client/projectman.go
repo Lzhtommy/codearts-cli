@@ -239,3 +239,38 @@ func (c *Client) BatchUpdateIpdIssues(ctx context.Context, projectID string, bod
 	}
 	return out, nil
 }
+
+// ----- CreateIssueComment -----
+//
+// No public Huawei OpenAPI doc — observed in CodeArts UI. Verified against
+// projectman-ext.cn-south-1 with AK/SK signing (see tools/probe-comments).
+// Endpoint: POST /v1/ipdprojectservice/projects/{project_id}/issues/{issue_id}/comments
+
+// CreateIssueCommentRequest is the body for adding a comment to a work item.
+// `category` is the entity-type discriminator (always "comment"); `issue_category`
+// is the work-item type the comment belongs to (Task/Bug/US/...). `description`
+// is HTML — the UI uses a rich-text editor and stores `<p>...</p>` markup.
+type CreateIssueCommentRequest struct {
+	Category      string `json:"category"`       // always "comment"
+	IssueCategory string `json:"issue_category"` // Task|Bug|US|RR|SF|IR|SR|AR|Epic|FE
+	Description   string `json:"description"`    // HTML body
+}
+
+// CreateIssueComment posts a comment to a work item.
+func (c *Client) CreateIssueComment(ctx context.Context, projectID, issueID string, body interface{}) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	if issueID == "" {
+		return nil, fmt.Errorf("issue_id is required")
+	}
+	if body == nil {
+		return nil, fmt.Errorf("request body is required (issue_category/description)")
+	}
+	path := fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues/%s/comments", projectID, issueID)
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "POST", c.ProjectManEndpoint(), path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

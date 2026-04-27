@@ -25,6 +25,7 @@ func newIssueCmd() *cobra.Command {
 	cmd.AddCommand(newIssueRelationsCmd())
 	cmd.AddCommand(newIssueMembersCmd())
 	cmd.AddCommand(newIssueStatusesCmd())
+	cmd.AddCommand(newIssueCommentCmd())
 	return cmd
 }
 
@@ -711,3 +712,131 @@ func runIssueBatchUpdate(cmd *cobra.Command, o *issueBatchOpts) error {
 	return nil
 }
 
+// ----------------------- issue comment -----------------------
+
+func newIssueCommentCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "comment",
+		Short: "Comment operations on a work item",
+	}
+	cmd.AddCommand(newIssueCommentAddCmd())
+	return cmd
+}
+
+type issueCommentAddOpts struct {
+	issueCategory   string
+	description     string
+	descriptionFile string
+	bodyJSON        string
+	bodyFile        string
+	dryRun          bool
+}
+
+func newIssueCommentAddCmd() *cobra.Command {
+	o := &issueCommentAddOpts{}
+	cmd := &cobra.Command{
+		Use:   "add <issue_id>",
+		Short: "Add a comment to a work item (CreateIssueComment)",
+		Long: `Post a comment to an IPD work item.
+
+Required:
+  <issue_id>          positional, the 18–19 digit work-item id (returned as
+                      "id" by issue list/show — NOT the short "number")
+  --issue-category    Task | Bug | US | RR | SF | IR | SR | AR | Epic | FE
+  --description       inline HTML body (use --description-file for long text)
+
+The endpoint is undocumented in Huawei's public API reference; the body
+shape was reverse-engineered from the CodeArts UI and verified end-to-end.
+description is HTML — wrap plain text as <p>…</p>.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runIssueCommentAdd(cmd, args[0], o)
+		},
+	}
+	cmd.Flags().StringVar(&o.issueCategory, "issue-category", "", "Work-item type: Task/Bug/US/RR/SF/IR/SR/AR/Epic/FE")
+	cmd.Flags().StringVar(&o.description, "description", "", "Comment HTML body (e.g. \"<p>hello</p>\")")
+	cmd.Flags().StringVar(&o.descriptionFile, "description-file", "", "Path to a file whose contents become the description")
+	cmd.Flags().StringVar(&o.bodyJSON, "body", "", "Full JSON body (overrides flag-based fields)")
+	cmd.Flags().StringVar(&o.bodyFile, "body-file", "", "Path to a JSON file for the full body")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runIssueCommentAdd(cmd *cobra.Command, issueID string, o *issueCommentAddOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := cfg.ProjectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
+	}
+
+	var body interface{}
+	rawBody, err := FirstNonEmpty("--body", o.bodyJSON, "--body-file", o.bodyFile)
+	if err != nil {
+		return err
+	}
+	if rawBody != "" {
+		m := map[string]interface{}{}
+		if err := json.Unmarshal([]byte(rawBody), &m); err != nil {
+			return fmt.Errorf("parse body JSON: %w", err)
+		}
+		// category defaults to "comment" if caller forgot — it's the only valid value here.
+		if _, ok := m["category"]; !ok {
+			m["category"] = "comment"
+		}
+		body = m
+	} else {
+		desc, err := FirstNonEmpty("--description", o.description, "--description-file", o.descriptionFile)
+		if err != nil {
+			return err
+		}
+		if o.issueCategory == "" || desc == "" {
+			missing := []string{}
+			if o.issueCategory == "" {
+				missing = append(missing, "--issue-category")
+			}
+			if desc == "" {
+				missing = append(missing, "--description (or --description-file)")
+			}
+			return fmt.Errorf("missing required fields: %s (or pass --body / --body-file)", strings.Join(missing, ", "))
+		}
+		body = &client.CreateIssueCommentRequest{
+			Category:      "comment",
+			IssueCategory: o.issueCategory,
+			Description:   desc,
+		}
+	}
+
+	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":     "POST",
+			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues/%s/comments", projectID, issueID),
+			"project_id": projectID,
+			"issue_id":   issueID,
+			"body":       body,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.CreateIssueComment(context.Background(), projectID, issueID, body)
+	if err != nil {
+		return err
+	}
+	commentID := ExtractStringFromResp(resp, "id")
+	if commentID != "" {
+		output.Successf(cmd.ErrOrStderr(), "Comment posted (id: %s)", commentID)
+	} else {
+		output.Successf(cmd.ErrOrStderr(), "Comment posted")
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
+}

@@ -4,7 +4,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
 [![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
 
-华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 19 个接口，配套 5 个 AI Agent [Skills](./skills/)。
+华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 20 个接口，配套 5 个 AI Agent [Skills](./skills/)。
 
 [安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [测试](#测试) · [架构](#项目结构) · [贡献](#贡献)
 
@@ -12,7 +12,7 @@
 
 - **Agent-Native 设计** — 4 个结构化 [Skills](./skills/)，兼容 Claude Code / Cursor / Codex / Gemini CLI 等主流 AI 工具
 - **轻量零依赖** — 不引入 huaweicloud-sdk-go-v3（几十 MB），自研 AK/SK 签名（SDK-HMAC-SHA256），单一二进制 ~3 MB
-- **四模块十七接口** — 流水线、工作项、代码托管、编译构建，一条命令触发 CI/CD、管理 Bug、创建 MR、跑编译
+- **四模块二十接口** — 流水线、工作项、代码托管、编译构建，一条命令触发 CI/CD、管理 Bug、发评论、创建 MR、跑编译
 - **Debug 友好** — 所有命令支持 `--dry-run`，预览 method / path / body 不发请求
 - **安全可控** — AK/SK 存储 `0600` 权限，`config show` 自动脱敏，CI 场景用 `--sk-stdin` 防泄露
 - **开源即用** — MIT 协议，`npm install` 一行安装
@@ -32,6 +32,7 @@
 | 📋 工作项  | `issue relations`    | ListE2EGraphsOpenAPI               | 查询工作项关联（E2E 图） |
 | 📋 工作项  | `issue members`      | ListProjectUsers                   | 查询项目成员             |
 | 📋 工作项  | `issue statuses`     | ListIssueStatues                   | 查询工作项状态定义       |
+| 📋 工作项  | `issue comment add`  | CreateIssueComment†                | 给工作项发评论           |
 | 🔀 代码托管 | `repo list`          | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
 | 🔀 代码托管 | `repo mr create`     | CreateMergeRequest                 | 创建合并请求             |
 | 🔀 代码托管 | `repo mr comment`    | CreateMergeRequestDiscussion       | 创建 MR 检视意见         |
@@ -40,6 +41,8 @@
 | 🛠️ 编译构建 | `build run`          | ExecuteJob                         | 触发构建                 |
 | 🛠️ 编译构建 | `build stop`         | StopTheJob                         | 停止运行中的构建         |
 | 🛠️ 编译构建 | `build status`       | ShowJobStepStatus                  | 查询构建任务步骤状态     |
+
+> † `CreateIssueComment` 未在华为云公开 API 文档中收录，从控制台 UI 反推并端到端验证。
 
 ## 安装
 
@@ -131,7 +134,7 @@ codearts-cli issue list --issue-type Bug --dry-run
 | -------------------- | --------------------------------------------------------------------------------- |
 | `codearts-shared`    | 配置初始化、凭证管理、通用标志、端点解析、错误处理（被其它 skill 自动引用）       |
 | `codearts-pipeline`  | 流水线列表 / 启动 / 停止 / 运行详情                                              |
-| `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新 / 关联追溯 / 项目成员 / 状态定义             |
+| `codearts-issue`     | 工作项查询 / 详情 / 创建 / 批量更新 / 关联追溯 / 项目成员 / 状态定义 / 评论       |
 | `codearts-repo`      | 仓库列表 / MR 创建 / MR 检视意见 / 仓库成员                                      |
 | `codearts-build`     | 构建任务列表 / 触发构建 / 停止构建 / 步骤状态                                    |
 
@@ -321,6 +324,33 @@ codearts-cli issue statuses 10020
 ```
 
 `<category_id>` 是 5 位数字工作项类型 ID（非 Bug/Task 字符串）。有效取值：`10001` / `10020` / `10021` / `10022` / `10023` / `10027` / `10028` / `10029` / `10033` / `10065`。返回 `result` 数组，每条含 `name` 和 `belonging`（`START` / `IN_PROGRESS` / `END`）。
+
+#### `issue comment add <issue_id>` — 给工作项发评论
+
+```bash
+# 基础
+codearts-cli issue comment add 1255545097800962048 \
+  --issue-category Task \
+  --description "<p>评审通过，请合并</p>"
+
+# 长文本走文件
+codearts-cli issue comment add <id> --issue-category Task --description-file note.html
+
+# 完整 JSON
+codearts-cli issue comment add <id> --body-file comment.json
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `<issue_id>`（位置参数）| 18–19 位数字 ID（API 返回的 `id`，非控制台 `number` 短号） |
+| `--issue-category`（必填）| 工作项类型字符串：`Task` / `Bug` / `US` / `RR` / `SF` / `IR` / `SR` / `AR` / `Epic` / `FE` |
+| `--description`（必填*）| 评论 HTML 体，纯文本要包 `<p>...</p>` |
+| `--description-file` | 描述从文件读 |
+| `--body` / `--body-file` | 完整 JSON（覆盖上面） |
+
+\* 用 `--body` / `--body-file` 时不需要这两个 flag。`category` 字段固定 `"comment"`，CLI 会自动补。
+
+接口未在华为云公开 API 文档中收录，body 形态：`{"category":"comment","issue_category":"Task","description":"<p>...</p>"}`。
 
 ### 代码托管
 

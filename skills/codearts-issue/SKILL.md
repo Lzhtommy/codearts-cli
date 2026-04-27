@@ -1,7 +1,7 @@
 ---
 name: codearts-issue
-version: 0.1.3
-description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员、查询工作项状态。当用户需要管理 Bug/Task/US/Epic 等工作项、查看项目成员或查询某工作项类型的状态定义时使用。"
+version: 0.1.4
+description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员、查询工作项状态、给工作项发评论。当用户需要管理 Bug/Task/US/Epic 等工作项、查看项目成员、查询某工作项类型的状态定义、或给工作项发评论时使用。"
 metadata:
   category: "devops"
   requires:
@@ -275,6 +275,49 @@ codearts-cli issue statuses <category_id>
 > **注意**：字符串分类名（Bug/Task/US/…）与 `category_id` 的映射是项目级配置，不同项目不同 —— 不要硬编码。在 CodeArts Req 控制台 **工作项类型** 设置页或其它接口的返回里查一次，本地记下来。
 
 **返回值**：`result` 数组，每条含 `name`（状态名，如 "新建"/"开发中"/"已关闭"）与 `belonging`（生命周期分桶：`START` / `IN_PROGRESS` / `END`）。
+
+### issue comment add
+
+给某个工作项发评论。
+
+```bash
+codearts-cli issue comment add <issue_id> \
+  --issue-category Task \
+  --description "<p>评审通过</p>"
+
+# 长文本走文件
+codearts-cli issue comment add <issue_id> --issue-category Task --description-file note.html
+
+# 完整 JSON
+codearts-cli issue comment add <issue_id> --body-file comment.json
+```
+
+**API**：`POST /v1/ipdprojectservice/projects/{project_id}/issues/{issue_id}/comments`（**无公开文档**，从 UI 反推并验证）
+
+| Flag | 说明 |
+| --- | --- |
+| `<issue_id>`（位置参数）| 18–19 位数字 ID（API 返回的 `id`，非控制台 `number` 短号）|
+| `--issue-category`（必填）| 工作项类型：`Task` / `Bug` / `US` / `RR` / `SF` / `IR` / `SR` / `AR` / `Epic` / `FE` |
+| `--description`（必填*）| 评论 HTML 体；纯文本要包 `<p>...</p>` |
+| `--description-file` | 描述内容从文件读 |
+| `--body` / `--body-file` | 完整 JSON（覆盖上述 flag） |
+| `--dry-run` | 预览请求 |
+
+\* 用 `--body` / `--body-file` 时不需要这两个 flag。
+
+**body 字段**（直接给 `--body-file` 用）：
+
+```json
+{ "category": "comment", "issue_category": "Task", "description": "<p>...</p>" }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `category` | 固定 `"comment"`（实体类型判别符；CLI 会自动补） |
+| `issue_category` | 工作项类型字符串，与上面 `--issue-category` 同 |
+| `description` | HTML 评论体 |
+
+**返回值**：`result` 是单个对象，含 `id`（新评论 ID）、`issue_id`、`description`、`created_by`、`creator_info` 等。
 
 ## 常见错误
 
