@@ -43,6 +43,10 @@ codearts-cli issue list --issue-type Bug \
 codearts-cli issue list --issue-type US,Task \
   --page-no 1 --page-size 50 \
   --sort-field created_date --sort-asc
+
+# 按自定义字段过滤（直接用 code 作字段名，例：Task 任务类型 = 设计）
+codearts-cli issue list --issue-type Task \
+  --filter '[{"c7447378174477062144":{"values":["1255457356664852481"],"operator":"||"}}]'
 ```
 
 **API 参考**: [ListIpdProjectIssues](https://support.huaweicloud.com/api-projectman/ListIpdProjectIssues.html)
@@ -61,6 +65,7 @@ codearts-cli issue list --issue-type US,Task \
 | `status` | 状态 |
 | `priority` | 优先级（中 / 高 / 低） |
 | `descendants.<field>` | 同名字段的树形下钻版；一般场景用裸字段即可 |
+| `c<19-digit-id>` | 项目级自定义字段；直接用 `code` 作字段名（见「Task 任务类型字段」） |
 
 `operator` 取值：`||`（OR，默认）、`!`（NOT）、`=`（等于单值）、`<>` / `<` / `>`（日期/数字范围）。
 
@@ -107,8 +112,9 @@ codearts-cli issue create \
   --category US \
   --assignee <user_id_32char>
 
-# 完整字段用 body-file
-codearts-cli issue create --body-file issue.json
+# 完整字段用 body-file（自定义字段如 Task 任务类型也走这条路径）
+codearts-cli issue create --body-file task.json
+# task.json 含 "custom_fields":[{"code":"c7447378174477062144","value":"<id>"}]
 ```
 
 **API 参考**: [CreateIpdProjectIssue](https://support.huaweicloud.com/api-projectman/CreateIpdProjectIssue.html)
@@ -125,6 +131,20 @@ codearts-cli issue create --body-file issue.json
 | `--dry-run` | 预览请求 |
 
 *使用 `--body` / `--body-file` 时不需要这些 flag。
+
+### Task 任务类型字段
+
+Task 的「任务类型」是项目级单选枚举自定义字段。`code` 与 value id 项目级（换项目用 `issue show` 重取），创建/修改走 `custom_fields:[{code,value}]`，过滤走 list `--filter` 用 `code` 作字段名——示例分别见 `issue create` / `issue batch-update` / `issue list`。
+
+字段 `code`：`c7447378174477062144`
+
+| 任务类型 | value |
+| --- | --- |
+| 需求 | `1255457356664852480` |
+| 设计 | `1255457356664852481` |
+| 测试 | `1255457356664852482` |
+
+> ⚠️ 写错格式时服务端静默返 `status:"success"` 但不更新，必须 `issue show <id> --issue-type Task` 回查 `.result[0].c7447378174477062144.display_value` 确认。
 
 ### issue batch-update
 
@@ -165,7 +185,7 @@ codearts-cli issue batch-update \
 | `workload` | string | 计划工时（0–999999999.9） |
 | `plan_pi` / `plan_iteration` | string | 发布计划 / 迭代计划 ID |
 | `labels` | array | 标签数组 |
-| `custom_fields` | array | 自定义字段 `[{field_code, value}]` |
+| `custom_fields` | array | 自定义字段 `[{code, value}]`（注意 key 是 `code`；`value` 为字符串，多选用英文逗号分隔） |
 | `close_type` | string | 关闭类型（关闭时配合 `status`） |
 | `fixed_owner` / `reason_analysis` / `repair_solution` / `expected_repair_date` | — | Bug 专用字段 |
 
@@ -179,6 +199,10 @@ codearts-cli issue batch-update --id 111,222 --category US \
 # 批量改状态
 codearts-cli issue batch-update --id 111,222 --category Bug \
   --attribute '{"status":"Delivered"}'
+
+# 改自定义字段（例：Task 任务类型 -> 测试，详见「Task 任务类型字段」）
+codearts-cli issue batch-update --id <task_id> --category Task \
+  --attribute '{"custom_fields":[{"code":"c7447378174477062144","value":"1255457356664852482"}]}'
 ```
 
 ### issue relations
