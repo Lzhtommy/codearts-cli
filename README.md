@@ -4,7 +4,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
 [![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
 
-华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 20 个接口，配套 5 个 AI Agent [Skills](./skills/)。
+华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 21 个接口，配套 5 个 AI Agent [Skills](./skills/)。
 
 [安装](#安装) · [AI Agent Skills](#agent-skills) · [配置](#配置) · [命令速查](#命令速查) · [高级用法](#高级用法) · [测试](#测试) · [架构](#项目结构) · [贡献](#贡献)
 
@@ -32,6 +32,7 @@
 | 📋 工作项  | `issue relations`    | ListE2EGraphsOpenAPI               | 查询工作项关联（E2E 图） |
 | 📋 工作项  | `issue members`      | ListProjectUsers                   | 查询项目成员             |
 | 📋 工作项  | `issue statuses`     | ListIssueStatues                   | 查询工作项状态定义       |
+| 📋 工作项  | `issue comment list` | ListIssueComments†                 | 查询工作项评论列表       |
 | 📋 工作项  | `issue comment add`  | CreateIssueComment†                | 给工作项发评论           |
 | 🔀 代码托管 | `repo list`          | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
 | 🔀 代码托管 | `repo mr create`     | CreateMergeRequest                 | 创建合并请求             |
@@ -42,7 +43,7 @@
 | 🛠️ 编译构建 | `build stop`         | StopTheJob                         | 停止运行中的构建         |
 | 🛠️ 编译构建 | `build status`       | ShowJobStepStatus                  | 查询构建任务步骤状态     |
 
-> † `CreateIssueComment` 未在华为云公开 API 文档中收录，从控制台 UI 反推并端到端验证。
+> † `CreateIssueComment` / `ListIssueComments` 未在华为云公开 API 文档中收录，从控制台 UI 反推并端到端验证。
 
 ## 安装
 
@@ -325,6 +326,30 @@ codearts-cli issue statuses 10020
 
 `<category_id>` 是 5 位数字工作项类型 ID（非 Bug/Task 字符串）。有效取值：`10001` / `10020` / `10021` / `10022` / `10023` / `10027` / `10028` / `10029` / `10033` / `10065`。返回 `result` 数组，每条含 `name` 和 `belonging`（`START` / `IN_PROGRESS` / `END`）。
 
+#### `issue comment list <issue_id>` — 查询工作项评论列表
+
+```bash
+# 默认拉评论 + 回复 + 操作日志
+codearts-cli issue comment list 1255554812900024320
+
+# 只看用户评论，倒序，每页 50
+codearts-cli issue comment list 1255554812900024320 \
+  --category comment --date-desc true --page-size 50
+
+# 跨项目查询
+codearts-cli issue comment list <id> --target-project-id <other-project-uuid>
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `<issue_id>`（位置参数）| 18–19 位数字 ID（API 返回的 `id`，非控制台 `number` 短号） |
+| `--category` | 上游必填项，CLI 默认 `comment,reply,operation`；可子集逗号分隔 |
+| `--page-no` / `--page-size` | 分页（0 = API 默认） |
+| `--date-desc` | `true` / `false` 倒/正序；省略则按 API 默认 |
+| `--target-project-id` | 跨项目查询时填来源项目 ID |
+
+返回 `result.comment_list[]`，每条含 `id` / `issue_id` / `type`（`comment` / `reply` / `operation`）/ `description`（HTML 体）/ `creator_info` / `created_date`（毫秒时间戳）/ `top` / `top_flag`，`Operation` 类型还附 `extend_attribute_obj` 操作日志详情。接口未在公开 API 文档中收录，行为从 UI 反推并端到端验证。
+
 #### `issue comment add <issue_id>` — 给工作项发评论
 
 ```bash
@@ -576,7 +601,7 @@ codearts-cli/
 │   ├── root.go                       # 根命令
 │   ├── config.go                     # config init / show / path / set
 │   ├── pipeline.go                   # pipeline list / run / stop / status
-│   ├── issue.go                      # issue list / show / create / batch-update / relations / members / statuses
+│   ├── issue.go                      # issue list / show / create / batch-update / relations / members / statuses / comment list / comment add
 │   ├── repo.go                       # repo list / mr create / mr comment / member list
 │   └── build.go                      # build list / run / stop / status
 └── internal/

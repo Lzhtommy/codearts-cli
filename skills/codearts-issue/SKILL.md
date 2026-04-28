@@ -1,7 +1,7 @@
 ---
 name: codearts-issue
-version: 0.1.4
-description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员、查询工作项状态、给工作项发评论。当用户需要管理 Bug/Task/US/Epic 等工作项、查看项目成员、查询某工作项类型的状态定义、或给工作项发评论时使用。"
+version: 0.1.5
+description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员、查询工作项状态、查询/发评论。当用户需要管理 Bug/Task/US/Epic 等工作项、查看项目成员、查询某工作项类型的状态定义、查看或发评论/操作日志时使用。"
 metadata:
   category: "devops"
   requires:
@@ -275,6 +275,51 @@ codearts-cli issue statuses <category_id>
 > **注意**：字符串分类名（Bug/Task/US/…）与 `category_id` 的映射是项目级配置，不同项目不同 —— 不要硬编码。在 CodeArts Req 控制台 **工作项类型** 设置页或其它接口的返回里查一次，本地记下来。
 
 **返回值**：`result` 数组，每条含 `name`（状态名，如 "新建"/"开发中"/"已关闭"）与 `belonging`（生命周期分桶：`START` / `IN_PROGRESS` / `END`）。
+
+### issue comment list
+
+查询某个工作项的评论 / 回复 / 操作日志列表。
+
+```bash
+# 默认拉评论 + 回复 + 操作日志
+codearts-cli issue comment list <issue_id>
+
+# 只看用户评论，倒序，每页 50
+codearts-cli issue comment list <issue_id> \
+  --category comment --date-desc true --page-size 50
+
+# 跨项目查询
+codearts-cli issue comment list <issue_id> --target-project-id <other-project-uuid>
+```
+
+**API**：`GET /v1/ipdprojectservice/projects/{project_id}/issues/{issue_id}/comments`（**无公开文档**，从 UI 反推并验证）
+
+| Flag | 说明 |
+| --- | --- |
+| `<issue_id>`（位置参数）| 18–19 位数字 ID（API 返回的 `id`，非控制台 `number` 短号）|
+| `--category` | 必填项，CLI 默认 `comment,reply,operation`；可子集逗号分隔 |
+| `--page-no` / `--page-size` | 分页（0 = API 默认） |
+| `--date-desc` | `true` / `false` 倒/正序；省略则按 API 默认 |
+| `--target-project-id` | 跨项目查询时填来源项目 ID；省略则用当前项目 |
+| `--dry-run` | 预览请求 |
+
+> ⚠️ 上游对 `category` 是**必填**校验，缺失会返回 200 但 `status:"failed"` —— CLI 默认值已覆盖 UI 的合集，无需手填。
+
+**`category` 取值**：
+
+| 值 | 含义 |
+| --- | --- |
+| `comment` | 用户评论 |
+| `reply` | 评论回复 |
+| `operation` | 系统生成的操作日志（状态变更、字段编辑等） |
+
+**返回值**：`result.comment_list[]`，每条含：
+- `id`、`issue_id`、`type`（`comment` / `reply` / `operation`）、`category`（`Comment` / `Reply` / `Operation`，首字母大写）
+- `description` —— HTML 体
+- `creator_info` —— `{user_id, user_name, nick_name, domain_id, domain_name, ...}`
+- `created_date` —— 毫秒时间戳字符串
+- `top` / `top_flag` —— 是否置顶
+- `extend_attribute` / `extend_attribute_obj` —— 仅 `Operation` 类型有，记录字段变更详情（如状态从 `_Start_` 改为 `Start`）
 
 ### issue comment add
 

@@ -274,3 +274,72 @@ func (c *Client) CreateIssueComment(ctx context.Context, projectID, issueID stri
 	}
 	return out, nil
 }
+
+// ----- ListIssueComments -----
+//
+// No public Huawei OpenAPI doc — observed in CodeArts UI and verified
+// end-to-end against projectman-ext.cn-south-1 with AK/SK signing.
+// Endpoint: GET /v1/ipdprojectservice/projects/{project_id}/issues/{issue_id}/comments
+//
+// `category` is **required** by the upstream (omitting it triggers a 200 with
+// `status:"failed"` and message "Required request paramteter 'category' can
+// not be null"). Valid values: any subset of `comment,reply,operation`,
+// comma-separated. The response shape is `result.comment_list[]` where each
+// entry has id / issue_id / category (Comment|Reply|Operation) / description
+// (HTML) / creator_info / created_date (ms) / top / top_flag, plus
+// extend_attribute_obj for Operation entries.
+
+// ListIssueCommentsOptions are the query parameters for ListIssueComments.
+// Category defaults to "comment,reply,operation" if empty (matches the UI).
+// PageNo/PageSize default to the upstream's defaults when 0.
+// TargetProjectID is used for cross-project queries; empty means same project.
+// DateDesc nil omits the param (upstream default applies).
+type ListIssueCommentsOptions struct {
+	Category        string
+	PageNo          int
+	PageSize        int
+	DateDesc        *bool
+	TargetProjectID string
+}
+
+// ListIssueComments fetches the comment / reply / operation log entries for a
+// work item. opts may be nil; in that case category defaults to all three
+// types and pagination uses upstream defaults.
+func (c *Client) ListIssueComments(ctx context.Context, projectID, issueID string, opts *ListIssueCommentsOptions) (map[string]interface{}, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("projectID is required")
+	}
+	if issueID == "" {
+		return nil, fmt.Errorf("issue_id is required")
+	}
+	if opts == nil {
+		opts = &ListIssueCommentsOptions{}
+	}
+	category := opts.Category
+	if category == "" {
+		category = "comment,reply,operation"
+	}
+	q := url.Values{"category": {category}}
+	if opts.PageNo > 0 {
+		q.Set("page_no", fmt.Sprintf("%d", opts.PageNo))
+	}
+	if opts.PageSize > 0 {
+		q.Set("page_size", fmt.Sprintf("%d", opts.PageSize))
+	}
+	if opts.DateDesc != nil {
+		if *opts.DateDesc {
+			q.Set("date_desc", "true")
+		} else {
+			q.Set("date_desc", "false")
+		}
+	}
+	if opts.TargetProjectID != "" {
+		q.Set("target_project_id", opts.TargetProjectID)
+	}
+	path := fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues/%s/comments", projectID, issueID)
+	out := map[string]interface{}{}
+	if err := c.Do(ctx, "GET", c.ProjectManEndpoint(), path, q, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

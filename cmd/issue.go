@@ -720,7 +720,137 @@ func newIssueCommentCmd() *cobra.Command {
 		Short: "Comment operations on a work item",
 	}
 	cmd.AddCommand(newIssueCommentAddCmd())
+	cmd.AddCommand(newIssueCommentListCmd())
 	return cmd
+}
+
+// ----------------------- issue comment list -----------------------
+
+type issueCommentListOpts struct {
+	category        string
+	pageNo          int
+	pageSize        int
+	dateDesc        string // "" | "true" | "false" — tri-state passthrough
+	targetProjectID string
+	dryRun          bool
+}
+
+func newIssueCommentListCmd() *cobra.Command {
+	o := &issueCommentListOpts{}
+	cmd := &cobra.Command{
+		Use:   "list <issue_id>",
+		Short: "List comments on a work item (ListIssueComments)",
+		Long: `Query the comment / reply / operation log of an IPD work item.
+
+<issue_id> is the 18-19 digit work-item id (returned as "id" by issue
+list/show — NOT the short "number").
+
+--category is required by the upstream API. Default is the UI's union
+"comment,reply,operation"; pass any subset (comma-separated) to narrow:
+  comment   user-authored comments
+  reply     replies to comments
+  operation system-generated operation log (status changes, edits, …)
+
+The endpoint is undocumented in Huawei's public API reference; the path
+and query schema were reverse-engineered from the CodeArts UI and verified
+end-to-end.
+
+EXAMPLES:
+    # All comments + replies + operation log (default)
+    codearts-cli issue comment list 1255554812900024320
+
+    # Only user comments, latest first, 50/page
+    codearts-cli issue comment list 1255554812900024320 \
+        --category comment --date-desc true --page-size 50
+
+    # Cross-project query
+    codearts-cli issue comment list 1255554812900024320 \
+        --target-project-id <other-project-uuid>`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runIssueCommentList(cmd, args[0], o)
+		},
+	}
+	cmd.Flags().StringVar(&o.category, "category", "comment,reply,operation", "Entry types to include (comma-separated subset of comment,reply,operation)")
+	cmd.Flags().IntVar(&o.pageNo, "page-no", 0, "Page number (1-based; 0 = API default)")
+	cmd.Flags().IntVar(&o.pageSize, "page-size", 0, "Page size (0 = API default)")
+	cmd.Flags().StringVar(&o.dateDesc, "date-desc", "", "Sort by date desc (true|false); omit to let the API decide")
+	cmd.Flags().StringVar(&o.targetProjectID, "target-project-id", "", "Source project id for cross-project queries (defaults to current project)")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runIssueCommentList(cmd *cobra.Command, issueID string, o *issueCommentListOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	projectID := cfg.ProjectID
+	if projectID == "" {
+		return fmt.Errorf("no project_id in config — run `codearts-cli config set projectId <uuid>`")
+	}
+	if strings.TrimSpace(o.category) == "" {
+		return fmt.Errorf("--category is required (e.g. comment,reply,operation)")
+	}
+	var dateDesc *bool
+	switch strings.ToLower(strings.TrimSpace(o.dateDesc)) {
+	case "":
+		// omit
+	case "true", "1", "yes":
+		v := true
+		dateDesc = &v
+	case "false", "0", "no":
+		v := false
+		dateDesc = &v
+	default:
+		return fmt.Errorf("--date-desc must be true or false, got %q", o.dateDesc)
+	}
+
+	opts := &client.ListIssueCommentsOptions{
+		Category:        o.category,
+		PageNo:          o.pageNo,
+		PageSize:        o.pageSize,
+		DateDesc:        dateDesc,
+		TargetProjectID: o.targetProjectID,
+	}
+
+	if o.dryRun {
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		q := map[string]interface{}{"category": o.category}
+		if o.pageNo > 0 {
+			q["page_no"] = o.pageNo
+		}
+		if o.pageSize > 0 {
+			q["page_size"] = o.pageSize
+		}
+		if dateDesc != nil {
+			q["date_desc"] = *dateDesc
+		}
+		if o.targetProjectID != "" {
+			q["target_project_id"] = o.targetProjectID
+		}
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":     "GET",
+			"path":       fmt.Sprintf("/v1/ipdprojectservice/projects/%s/issues/%s/comments", projectID, issueID),
+			"project_id": projectID,
+			"issue_id":   issueID,
+			"query":      q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListIssueComments(context.Background(), projectID, issueID, opts)
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
 }
 
 type issueCommentAddOpts struct {
