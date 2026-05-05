@@ -1,6 +1,6 @@
 {
   "name": "@autelrobotics/codearts-cli",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "CLI for Huawei Cloud CodeArts — pipeline, issue, and repo operations with AK/SK signing",
   "bin": {
     "codearts-cli": "scripts/run.js"
