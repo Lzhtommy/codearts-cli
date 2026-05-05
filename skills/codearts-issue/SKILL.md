@@ -1,6 +1,6 @@
 ---
 name: codearts-issue
-version: 0.1.5
+version: 0.1.6
 description: "CodeArts 工作项管理（ProjectMan IPD）：查询工作项列表、查询详情、创建工作项、批量更新、查询工作项关联、查询项目成员、查询工作项状态、查询/发评论。当用户需要管理 Bug/Task/US/Epic 等工作项、查看项目成员、查询某工作项类型的状态定义、查看或发评论/操作日志时使用。"
 metadata:
   category: "devops"
@@ -290,6 +290,9 @@ codearts-cli issue comment list <issue_id> \
 
 # 跨项目查询
 codearts-cli issue comment list <issue_id> --target-project-id <other-project-uuid>
+
+# 把评论 description 中嵌入的图片自动下载到本地
+codearts-cli issue comment list <issue_id> --download-images --image-dir ./images
 ```
 
 **API**：`GET /v1/ipdprojectservice/projects/{project_id}/issues/{issue_id}/comments`（**无公开文档**，从 UI 反推并验证）
@@ -301,6 +304,8 @@ codearts-cli issue comment list <issue_id> --target-project-id <other-project-uu
 | `--page-no` / `--page-size` | 分页（0 = API 默认） |
 | `--date-desc` | `true` / `false` 倒/正序；省略则按 API 默认 |
 | `--target-project-id` | 跨项目查询时填来源项目 ID；省略则用当前项目 |
+| `--download-images` | 解析评论 HTML 中的 `<img src>`，走 AK/SK 网关把图片下载到 `--image-dir`（落盘前 magic bytes 校验） |
+| `--image-dir` | 下载目录，默认 `./images`（不存在自动创建） |
 | `--dry-run` | 预览请求 |
 
 > ⚠️ 上游对 `category` 是**必填**校验，缺失会返回 200 但 `status:"failed"` —— CLI 默认值已覆盖 UI 的合集，无需手填。

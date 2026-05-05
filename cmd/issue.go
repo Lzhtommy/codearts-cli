@@ -1,9 +1,19 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
+	"io"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -732,6 +742,8 @@ type issueCommentListOpts struct {
 	pageSize        int
 	dateDesc        string // "" | "true" | "false" — tri-state passthrough
 	targetProjectID string
+	downloadImages  bool
+	imageDir        string
 	dryRun          bool
 }
 
@@ -776,6 +788,8 @@ EXAMPLES:
 	cmd.Flags().IntVar(&o.pageSize, "page-size", 0, "Page size (0 = API default)")
 	cmd.Flags().StringVar(&o.dateDesc, "date-desc", "", "Sort by date desc (true|false); omit to let the API decide")
 	cmd.Flags().StringVar(&o.targetProjectID, "target-project-id", "", "Source project id for cross-project queries (defaults to current project)")
+	cmd.Flags().BoolVar(&o.downloadImages, "download-images", false, "Download images embedded in comment descriptions to --image-dir")
+	cmd.Flags().StringVar(&o.imageDir, "image-dir", "./images", "Directory to write downloaded images into (created if missing)")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
 	return cmd
 }
@@ -849,8 +863,199 @@ func runIssueCommentList(cmd *cobra.Command, issueID string, o *issueCommentList
 	if err != nil {
 		return err
 	}
+	if o.downloadImages {
+		downloadCommentImages(cmd, cli, resp, o.imageDir)
+	}
 	output.PrintJSON(cmd.OutOrStdout(), resp)
 	return nil
+}
+
+// commentImgSrcRe matches the src attribute of <img> tags inside comment HTML.
+// Comment descriptions look like: <p><img src="/api/.../imgs/x.jpeg" ...></p>.
+var commentImgSrcRe = regexp.MustCompile(`(?i)<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']`)
+
+// downloadCommentImages walks resp.result.comment_list[*].description, extracts
+// <img src> values, and downloads each unique image into destDir. Image URLs
+// require authentication, so we route through the AK/SK-signed gateway path
+// (cli.DownloadSigned) using the ProjectMan signing host. Failures are logged
+// to stderr and don't abort the command.
+func downloadCommentImages(cmd *cobra.Command, cli *client.Client, resp map[string]interface{}, destDir string) {
+	stderr := cmd.ErrOrStderr()
+	urls := collectCommentImageURLs(resp)
+	if len(urls) == 0 {
+		output.Successf(stderr, "no images found in comment descriptions")
+		return
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		output.Errorf(stderr, "create image dir %s: %v", destDir, err)
+		return
+	}
+	ctx := context.Background()
+	ok, fail := 0, 0
+	for _, u := range urls {
+		dest := filepath.Join(destDir, imageFilenameFromURL(u))
+		if err := signedDownloadImage(ctx, cli, u, dest); err != nil {
+			output.Errorf(stderr, "download %s: %v", u, err)
+			fail++
+			continue
+		}
+		output.Successf(stderr, "downloaded %s -> %s", u, dest)
+		ok++
+	}
+	output.Successf(stderr, "image download summary: %d ok, %d failed (dir: %s)", ok, fail, destDir)
+}
+
+// signedDownloadImage fetches a comment-embedded image through the apinto
+// gateway with AK/SK auth.
+//
+// imageSrc is either a relative path (the typical UI-proxy form
+// /api/ipdproject/openapi/v1/projects/{pid}/imgs/{file}) or an absolute
+// http(s) URL — url.Parse handles both. We extract its path, rewrite the
+// UI-proxy prefix to the ProjectMan API form, and sign + send through the
+// configured gateway. The host portion of an absolute URL is discarded —
+// the gateway always routes by the signing host.
+func signedDownloadImage(ctx context.Context, cli *client.Client, imageSrc, destPath string) error {
+	u, err := url.Parse(imageSrc)
+	if err != nil {
+		return fmt.Errorf("parse url: %w", err)
+	}
+	if u.Path == "" {
+		return fmt.Errorf("url has no path: %s", imageSrc)
+	}
+	apiPath := mapImagePathToAPI(u.Path)
+	var q url.Values
+	if u.RawQuery != "" {
+		q = u.Query()
+	}
+
+	buf := &bytes.Buffer{}
+	if err := cli.DownloadSigned(ctx, cli.ProjectManEndpoint(), apiPath, q, buf); err != nil {
+		return err
+	}
+	if !looksLikeImage(buf.Bytes()) {
+		return fmt.Errorf("response is not an image (likely auth redirect / login page)")
+	}
+	f, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, buf); err != nil {
+		_ = os.Remove(destPath)
+		return fmt.Errorf("write file: %w", err)
+	}
+	return nil
+}
+
+// looksLikeImage returns true if b begins with magic bytes for one of the
+// common image formats CodeArts comments use (JPEG, PNG, GIF, WebP, BMP).
+// Anything else — notably HTML auth-redirect bodies — is rejected so we
+// don't write garbage into the user's image dir on a silent auth failure.
+func looksLikeImage(b []byte) bool {
+	switch {
+	case len(b) >= 3 && bytes.Equal(b[:3], []byte{0xFF, 0xD8, 0xFF}):
+		return true // JPEG
+	case len(b) >= 8 && bytes.Equal(b[:8], []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}):
+		return true // PNG
+	case len(b) >= 6 && (bytes.Equal(b[:6], []byte("GIF87a")) || bytes.Equal(b[:6], []byte("GIF89a"))):
+		return true // GIF
+	case len(b) >= 12 && bytes.Equal(b[:4], []byte("RIFF")) && bytes.Equal(b[8:12], []byte("WEBP")):
+		return true // WebP
+	case len(b) >= 2 && bytes.Equal(b[:2], []byte("BM")):
+		return true // BMP
+	}
+	return false
+}
+
+// mapImagePathToAPI rewrites a CodeArts UI image-proxy path to the AK/SK API
+// path the ProjectMan gateway expects. The HTML embeds images as
+//
+//	/api/ipdproject/openapi/v1/projects/{pid}/imgs/{file}
+//
+// which is the cookie-authenticated UI proxy. The signed API equivalent is
+//
+//	/v1/ipdprojectservice/projects/{pid}/imgs/{file}
+//
+// matching the same prefix the ListIssueComments / CreateIssueComment paths
+// use. Other paths pass through unchanged so callers can pass already-API
+// paths and the helper stays a no-op.
+func mapImagePathToAPI(p string) string {
+	const uiPrefix = "/api/ipdproject/openapi/v1/"
+	const apiPrefix = "/v1/ipdprojectservice/"
+	if strings.HasPrefix(p, uiPrefix) {
+		return apiPrefix + strings.TrimPrefix(p, uiPrefix)
+	}
+	return p
+}
+
+// collectCommentImageURLs scans the comment_list response for <img src> values
+// and returns them in first-seen order, deduplicated. `data:` URIs and other
+// non-http(s) schemes (e.g. `file:`) are skipped — only relative paths and
+// http(s) URLs are returned.
+func collectCommentImageURLs(resp map[string]interface{}) []string {
+	result, _ := resp["result"].(map[string]interface{})
+	if result == nil {
+		return nil
+	}
+	list, _ := result["comment_list"].([]interface{})
+	if len(list) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	var urls []string
+	for _, item := range list {
+		entry, _ := item.(map[string]interface{})
+		if entry == nil {
+			continue
+		}
+		desc, _ := entry["description"].(string)
+		if desc == "" {
+			continue
+		}
+		for _, m := range commentImgSrcRe.FindAllStringSubmatch(desc, -1) {
+			src := html.UnescapeString(strings.TrimSpace(m[1]))
+			if !isFetchableImageSrc(src) {
+				continue
+			}
+			if _, dup := seen[src]; dup {
+				continue
+			}
+			seen[src] = struct{}{}
+			urls = append(urls, src)
+		}
+	}
+	return urls
+}
+
+// isFetchableImageSrc returns true for relative paths and http(s) URLs.
+// `data:` URIs and other non-http schemes are skipped.
+func isFetchableImageSrc(src string) bool {
+	if src == "" {
+		return false
+	}
+	lower := strings.ToLower(src)
+	if strings.HasPrefix(lower, "data:") {
+		return false
+	}
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return true
+	}
+	// Relative path — must start with "/" so we can map UI proxy prefix.
+	return strings.HasPrefix(src, "/")
+}
+
+// imageFilenameFromURL derives a safe local filename from an image URL,
+// preferring the last path segment. Falls back to a sha1 of the URL when
+// the segment is missing or unsafe (no extension / contains separators).
+func imageFilenameFromURL(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.Path != "" {
+		base := path.Base(u.Path)
+		if base != "" && base != "/" && base != "." && !strings.ContainsAny(base, `\/`) {
+			return base
+		}
+	}
+	sum := sha1.Sum([]byte(rawURL))
+	return "image_" + hex.EncodeToString(sum[:])[:12]
 }
 
 type issueCommentAddOpts struct {

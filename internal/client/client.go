@@ -184,3 +184,48 @@ func (c *Client) Do(ctx context.Context, method, endpoint, path string, query ur
 	}
 	return nil
 }
+
+// DownloadSigned issues an AK/SK-signed GET to endpoint+path and streams the
+// response body to dst. Used for binary content (e.g. comment-embedded images).
+// Routes through cfg.Gateway the same way Do does so the Huawei hostname
+// signature is preserved.
+func (c *Client) DownloadSigned(ctx context.Context, endpoint, path string, query url.Values, dst io.Writer) error {
+	full := strings.TrimRight(endpoint, "/") + path
+	if len(query) > 0 {
+		full += "?" + query.Encode()
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", full, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("User-Agent", "codearts-cli/0.1")
+	if err := c.signer.Sign(req, nil); err != nil {
+		return fmt.Errorf("sign request: %w", err)
+	}
+
+	gwURL, err := url.Parse(c.cfg.Gateway)
+	if err != nil || gwURL.Host == "" {
+		return fmt.Errorf("invalid gateway %q in config: want http(s)://host[:port]", c.cfg.Gateway)
+	}
+	req.Host = req.URL.Host
+	req.URL.Scheme = gwURL.Scheme
+	req.URL.Host = gwURL.Host
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if os.IsTimeout(err) {
+			return fmt.Errorf("request timed out: %w", err)
+		}
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return &APIError{Status: resp.Status, StatusCode: resp.StatusCode, Body: body}
+	}
+	if _, err := io.Copy(dst, resp.Body); err != nil {
+		return fmt.Errorf("stream body: %w", err)
+	}
+	return nil
+}
