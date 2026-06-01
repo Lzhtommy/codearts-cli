@@ -191,7 +191,7 @@ func newRepoListCmd() *cobra.Command {
 --project-id is required (32-char project UUID).
 
 The response includes each repo's numeric repository_id — use that for
-repo mr create / repo mr comment commands.
+the repo mr (list/show/create/comment) commands.
 
 EXAMPLES:
     # List all repos
@@ -265,8 +265,205 @@ func newRepoMRCmd() *cobra.Command {
 		Use:   "mr",
 		Short: "Merge request operations",
 	}
+	cmd.AddCommand(newRepoMRListCmd())
+	cmd.AddCommand(newRepoMRShowCmd())
 	cmd.AddCommand(newRepoMRCreateCmd())
 	cmd.AddCommand(newRepoMRCommentCmd())
+	return cmd
+}
+
+// ----------------------- repo mr list -----------------------
+
+type mrListOpts struct {
+	repoID       int
+	state        string
+	search       string
+	authorID     string
+	sourceBranch string
+	targetBranch string
+	orderBy      string
+	sort         string
+	offset       int
+	limit        int
+	dryRun       bool
+}
+
+func newRepoMRListCmd() *cobra.Command {
+	o := &mrListOpts{}
+	cmd := &cobra.Command{
+		Use:   "list <repository_id>",
+		Short: "List merge requests of a repository (ListRepositoryMergeRequests)",
+		Long: `List the merge requests of a repository.
+
+<repository_id> is the numeric repository ID (int), not a UUID. The returned
+"iid" is what the per-MR commands (repo mr show / repo mr comment) expect.
+
+Simplest usage:
+    codearts-cli repo mr list 12345
+
+Filter / paginate:
+    codearts-cli repo mr list 12345 \
+      --state opened --target main --sort desc --limit 50
+
+API reference: https://support.huaweicloud.com/api-codeartsrepo/ListRepositoryMergeRequests.html`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v, err := ParseRepoID(args[0])
+			if err != nil {
+				return err
+			}
+			o.repoID = v
+			return runMRList(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.state, "state", "", "Filter by state: all | opened | closed | merged (API default all)")
+	cmd.Flags().StringVar(&o.search, "search", "", "Keyword in MR title/description")
+	cmd.Flags().StringVar(&o.authorID, "author-id", "", "Filter by creator user id(s) (comma-separated)")
+	cmd.Flags().StringVar(&o.sourceBranch, "source", "", "Filter by source_branch")
+	cmd.Flags().StringVar(&o.targetBranch, "target", "", "Filter by target_branch")
+	cmd.Flags().StringVar(&o.orderBy, "order-by", "", "Sort field: created_at | updated_at (API default created_at)")
+	cmd.Flags().StringVar(&o.sort, "sort", "", "Sort direction: asc | desc (API default desc)")
+	cmd.Flags().IntVar(&o.offset, "offset", 0, "Pagination offset (0 = API default)")
+	cmd.Flags().IntVar(&o.limit, "limit", 0, "Page size, 1-100 (0 = API default of 20)")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runMRList(cmd *cobra.Command, o *mrListOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	if o.dryRun {
+		q := map[string]interface{}{}
+		if o.state != "" {
+			q["state"] = o.state
+		}
+		if o.search != "" {
+			q["search"] = o.search
+		}
+		if o.authorID != "" {
+			q["author_id"] = o.authorID
+		}
+		if o.sourceBranch != "" {
+			q["source_branch"] = o.sourceBranch
+		}
+		if o.targetBranch != "" {
+			q["target_branch"] = o.targetBranch
+		}
+		if o.orderBy != "" {
+			q["order_by"] = o.orderBy
+		}
+		if o.sort != "" {
+			q["sort"] = o.sort
+		}
+		if o.offset > 0 {
+			q["offset"] = o.offset
+		}
+		if o.limit > 0 {
+			q["limit"] = o.limit
+		}
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":        "GET",
+			"path":          fmt.Sprintf("/v4/repositories/%d/merge-requests", o.repoID),
+			"repository_id": o.repoID,
+			"query":         q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListRepositoryMergeRequests(context.Background(), o.repoID, &client.ListMRsOptions{
+		State:        o.state,
+		Search:       o.search,
+		AuthorID:     o.authorID,
+		SourceBranch: o.sourceBranch,
+		TargetBranch: o.targetBranch,
+		OrderBy:      o.orderBy,
+		Sort:         o.sort,
+		Offset:       o.offset,
+		Limit:        o.limit,
+	})
+	if err != nil {
+		return err
+	}
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
+}
+
+// ----------------------- repo mr show -----------------------
+
+func newRepoMRShowCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "show <repository_id> <merge_request_iid>",
+		Short: "Show a merge request's detail (ShowMergeRequestDetail)",
+		Long: `Show the detail of a single merge request.
+
+<repository_id> and <merge_request_iid> are both integers (numeric IDs).
+
+    codearts-cli repo mr show 12345 7
+
+API reference: https://support.huaweicloud.com/api-codeartsrepo/ShowMergeRequestDetail.html`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repoID, err := ParseRepoID(args[0])
+			if err != nil {
+				return err
+			}
+			iid, err := strconv.Atoi(args[1])
+			if err != nil || iid <= 0 {
+				return fmt.Errorf("merge_request_iid must be a positive integer, got %q", args[1])
+			}
+			cfg, err := core.Load()
+			if err != nil {
+				return err
+			}
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
+			if dryRun {
+				output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+				output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+					"method":            "GET",
+					"path":              fmt.Sprintf("/v4/repositories/%d/merge-requests/%d", repoID, iid),
+					"repository_id":     repoID,
+					"merge_request_iid": iid,
+				})
+				return nil
+			}
+			cli, err := client.New(cfg)
+			if err != nil {
+				return err
+			}
+			resp, err := cli.ShowMergeRequestDetail(context.Background(), repoID, iid)
+			if err != nil {
+				return err
+			}
+			output.PrintJSON(cmd.OutOrStdout(), resp)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+// ----------------------- repo mr comment (parent) -----------------------
+
+func newRepoMRCommentCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "comment",
+		Short: "Merge-request review discussion operations",
+	}
+	cmd.AddCommand(newRepoMRCommentListCmd())
+	cmd.AddCommand(newRepoMRCommentAddCmd())
 	return cmd
 }
 
@@ -444,17 +641,17 @@ type mrCommentOpts struct {
 	dryRun       bool
 }
 
-func newRepoMRCommentCmd() *cobra.Command {
+func newRepoMRCommentAddCmd() *cobra.Command {
 	o := &mrCommentOpts{}
 	cmd := &cobra.Command{
-		Use:   "comment <repository_id> <merge_request_iid>",
+		Use:   "add <repository_id> <merge_request_iid>",
 		Short: "Post a review discussion on a merge request (CreateMergeRequestDiscussion)",
 		Long: `Create a merge-request discussion (i.e. a code review comment).
 
 <repository_id> and <merge_request_iid> are both integers (numeric IDs).
 
 Simplest usage:
-    codearts-cli repo mr comment 12345 7 --body "Please add a unit test here"
+    codearts-cli repo mr comment add 12345 7 --body "Please add a unit test here"
 
 For line-level comments or richer review metadata (position, review_categories,
 etc.), pass --body-file with the full JSON.
@@ -543,6 +740,114 @@ func runMRComment(cmd *cobra.Command, o *mrCommentOpts) error {
 		return err
 	}
 	output.Successf(cmd.ErrOrStderr(), "Discussion posted on MR !%d (repo %d)", o.mrIID, o.repoID)
+	output.PrintJSON(cmd.OutOrStdout(), resp)
+	return nil
+}
+
+// ----------------------- repo mr comment list -----------------------
+
+type mrCommentListOpts struct {
+	repoID     int
+	mrIID      int
+	unresolved string // "" | "true" | "false"
+	authorID   int
+	sort       string // "" | "asc" | "desc"
+	offset     int
+	limit      int
+	dryRun     bool
+}
+
+func newRepoMRCommentListCmd() *cobra.Command {
+	o := &mrCommentListOpts{}
+	cmd := &cobra.Command{
+		Use:   "list <repository_id> <merge_request_iid>",
+		Short: "List review discussions on a merge request (ListMergeRequestDiscussions)",
+		Long: `List the review discussions (code review comments) on a merge request.
+
+<repository_id> and <merge_request_iid> are both integers (numeric IDs).
+
+Simplest usage:
+    codearts-cli repo mr comment list 12345 7
+
+Filter / paginate:
+    codearts-cli repo mr comment list 12345 7 \
+      --unresolved true --sort desc --limit 50
+
+API reference: https://support.huaweicloud.com/api-codeartsrepo/ListMergeRequestDiscussions.html`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v, err := ParseRepoID(args[0])
+			if err != nil {
+				return err
+			}
+			o.repoID = v
+			iid, err := strconv.Atoi(args[1])
+			if err != nil || iid <= 0 {
+				return fmt.Errorf("merge_request_iid must be a positive integer, got %q", args[1])
+			}
+			o.mrIID = iid
+			return runMRCommentList(cmd, o)
+		},
+	}
+	cmd.Flags().StringVar(&o.unresolved, "unresolved", "", "Filter by resolution: true (unresolved only) | false (resolved only); omit for all")
+	cmd.Flags().IntVar(&o.authorID, "author-id", 0, "Filter by author user id (0 = no filter)")
+	cmd.Flags().StringVar(&o.sort, "sort", "", "Sort by creation time: asc | desc; omit to let the API decide")
+	cmd.Flags().IntVar(&o.offset, "offset", 0, "Pagination offset (0 = API default)")
+	cmd.Flags().IntVar(&o.limit, "limit", 0, "Page size, 1-100 (0 = API default of 20)")
+	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "Print the resolved request and exit")
+	return cmd
+}
+
+func runMRCommentList(cmd *cobra.Command, o *mrCommentListOpts) error {
+	cfg, err := core.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	if o.dryRun {
+		q := map[string]interface{}{}
+		if o.unresolved != "" {
+			q["unresolved"] = o.unresolved
+		}
+		if o.authorID > 0 {
+			q["author_id"] = o.authorID
+		}
+		if o.sort != "" {
+			q["sort"] = o.sort
+		}
+		if o.offset > 0 {
+			q["offset"] = o.offset
+		}
+		if o.limit > 0 {
+			q["limit"] = o.limit
+		}
+		output.DryRunf(cmd.ErrOrStderr(), "request preview (not sent)")
+		output.PrintJSON(cmd.OutOrStdout(), map[string]interface{}{
+			"method":            "GET",
+			"path":              fmt.Sprintf("/v4/repositories/%d/merge-requests/%d/discussions", o.repoID, o.mrIID),
+			"repository_id":     o.repoID,
+			"merge_request_iid": o.mrIID,
+			"query":             q,
+		})
+		return nil
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ListMergeRequestDiscussions(context.Background(), o.repoID, o.mrIID, &client.ListMRDiscussionsOptions{
+		Unresolved: o.unresolved,
+		AuthorID:   o.authorID,
+		Sort:       o.sort,
+		Offset:     o.offset,
+		Limit:      o.limit,
+	})
+	if err != nil {
+		return err
+	}
 	output.PrintJSON(cmd.OutOrStdout(), resp)
 	return nil
 }

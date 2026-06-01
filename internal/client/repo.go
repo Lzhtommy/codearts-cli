@@ -83,6 +83,91 @@ func (c *Client) ListMembers(ctx context.Context, repositoryID int, req *ListMem
 	return out, nil
 }
 
+// ListMRsOptions bundles the query parameters for ListRepositoryMergeRequests.
+// All fields are optional — the API applies defaults (offset=0, limit=20,
+// state=all, order_by=created_at, sort=desc) when unset.
+type ListMRsOptions struct {
+	State        string // all | opened | closed | merged
+	Search       string
+	AuthorID     string // comma-separated creator ids
+	SourceBranch string
+	TargetBranch string
+	OrderBy      string // created_at | updated_at
+	Sort         string // asc | desc
+	Offset       int
+	Limit        int // 1-100
+}
+
+// ListRepositoryMergeRequests queries the merge requests of a repository.
+// Use the returned `iid` for the per-MR commands (show / comment).
+//
+// Reference: https://support.huaweicloud.com/api-codeartsrepo/ListRepositoryMergeRequests.html
+// Endpoint:  GET /v4/repositories/{repository_id}/merge-requests
+//
+// The response body is an array of merge-request DTOs, so the return type is a
+// free-form interface{} (callers dump it via output.PrintJSON). The total
+// count is carried in an X-Total response header that Do does not surface.
+func (c *Client) ListRepositoryMergeRequests(ctx context.Context, repositoryID int, opts *ListMRsOptions) (interface{}, error) {
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("repository_id must be a positive integer")
+	}
+	path := fmt.Sprintf("/v4/repositories/%d/merge-requests", repositoryID)
+	q := url.Values{}
+	if opts != nil {
+		if opts.State != "" {
+			q.Set("state", opts.State)
+		}
+		if opts.Search != "" {
+			q.Set("search", opts.Search)
+		}
+		if opts.AuthorID != "" {
+			q.Set("author_id", opts.AuthorID)
+		}
+		if opts.SourceBranch != "" {
+			q.Set("source_branch", opts.SourceBranch)
+		}
+		if opts.TargetBranch != "" {
+			q.Set("target_branch", opts.TargetBranch)
+		}
+		if opts.OrderBy != "" {
+			q.Set("order_by", opts.OrderBy)
+		}
+		if opts.Sort != "" {
+			q.Set("sort", opts.Sort)
+		}
+		if opts.Offset > 0 {
+			q.Set("offset", fmt.Sprintf("%d", opts.Offset))
+		}
+		if opts.Limit > 0 {
+			q.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		}
+	}
+	var out interface{}
+	if err := c.Do(ctx, "GET", c.RepoEndpoint(), path, q, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ShowMergeRequestDetail queries the detail of a single merge request.
+//
+// Reference: https://support.huaweicloud.com/api-codeartsrepo/ShowMergeRequestDetail.html
+// Endpoint:  GET /v4/repositories/{repository_id}/merge-requests/{merge_request_iid}
+func (c *Client) ShowMergeRequestDetail(ctx context.Context, repositoryID, mergeRequestIID int) (interface{}, error) {
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("repository_id must be a positive integer")
+	}
+	if mergeRequestIID <= 0 {
+		return nil, fmt.Errorf("merge_request_iid must be a positive integer")
+	}
+	path := fmt.Sprintf("/v4/repositories/%d/merge-requests/%d", repositoryID, mergeRequestIID)
+	var out interface{}
+	if err := c.Do(ctx, "GET", c.RepoEndpoint(), path, nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CreateMergeRequest creates a merge request on a repository.
 //
 // Reference: https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequest.html
@@ -180,6 +265,58 @@ func (c *Client) CreateMergeRequestDiscussion(ctx context.Context, repositoryID,
 	path := fmt.Sprintf("/v4/repositories/%d/merge-requests/%d/discussions", repositoryID, mergeRequestIID)
 	out := map[string]interface{}{}
 	if err := c.Do(ctx, "POST", c.RepoEndpoint(), path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListMRDiscussionsOptions bundles the query parameters for
+// ListMergeRequestDiscussions. All fields are optional — the API applies
+// defaults (offset=0, limit=20) when unset.
+type ListMRDiscussionsOptions struct {
+	Unresolved string // "" (all) | "true" (unresolved only) | "false" (resolved only)
+	AuthorID   int    // filter by author user id (0 = no filter)
+	Sort       string // "" | "asc" | "desc" (by creation time)
+	Offset     int
+	Limit      int // 1-100
+}
+
+// ListMergeRequestDiscussions queries the review discussions (comments) on a
+// merge request.
+//
+// Reference: https://support.huaweicloud.com/api-codeartsrepo/ListMergeRequestDiscussions.html
+// Endpoint:  GET /v4/repositories/{repository_id}/merge-requests/{merge_request_iid}/discussions
+//
+// The response body is an array of MergeRequestDiscussionDto, so the return
+// type is a free-form interface{} (callers dump it via output.PrintJSON).
+func (c *Client) ListMergeRequestDiscussions(ctx context.Context, repositoryID, mergeRequestIID int, opts *ListMRDiscussionsOptions) (interface{}, error) {
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("repository_id must be a positive integer")
+	}
+	if mergeRequestIID <= 0 {
+		return nil, fmt.Errorf("merge_request_iid must be a positive integer")
+	}
+	path := fmt.Sprintf("/v4/repositories/%d/merge-requests/%d/discussions", repositoryID, mergeRequestIID)
+	q := url.Values{}
+	if opts != nil {
+		if opts.Unresolved != "" {
+			q.Set("unresolved", opts.Unresolved)
+		}
+		if opts.AuthorID > 0 {
+			q.Set("author_id", fmt.Sprintf("%d", opts.AuthorID))
+		}
+		if opts.Sort != "" {
+			q.Set("sort", opts.Sort)
+		}
+		if opts.Offset > 0 {
+			q.Set("offset", fmt.Sprintf("%d", opts.Offset))
+		}
+		if opts.Limit > 0 {
+			q.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		}
+	}
+	var out interface{}
+	if err := c.Do(ctx, "GET", c.RepoEndpoint(), path, q, nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil

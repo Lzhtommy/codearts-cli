@@ -1,7 +1,7 @@
 ---
 name: codearts-repo
-version: 0.1.2
-description: "CodeArts 代码托管：查询仓库列表（ListRepositories）、创建合并请求（CreateMergeRequest）、创建 MR 检视意见（CreateMergeRequestDiscussion）、查询仓库成员（ListMembers）。当用户需要查看仓库、创建 MR、发代码评审意见或查询仓库成员时使用。"
+version: 0.1.3
+description: "CodeArts 代码托管：查询仓库列表（ListRepositories）、查询/创建合并请求（ListRepositoryMergeRequests / ShowMergeRequestDetail / CreateMergeRequest）、查询/创建 MR 检视意见（ListMergeRequestDiscussions / CreateMergeRequestDiscussion）、查询仓库成员（ListMembers）。当用户需要查看仓库、查/建 MR、查/发代码评审意见或查询仓库成员时使用。"
 metadata:
   category: "devops"
   requires:
@@ -72,7 +72,7 @@ codearts-cli repo list --project-id <project_uuid> --page-index 2 --page-size 10
 
 **返回值**：`result.repositories` 数组，每条包含 `repository_id`（**整数**，用于 MR 操作）、`repository_name`、`ssh_url`、`https_url`、`web_url`。
 
-> **关键**：`repo list` 返回的 `repository_id` 就是 `repo mr create` / `repo mr comment` 需要的参数。
+> **关键**：`repo list` 返回的 `repository_id` 就是 `repo mr list/show/create/comment` 需要的参数。
 
 ## 重要：repository_id 是整数
 
@@ -84,6 +84,43 @@ codearts-cli repo list --project-id <project_uuid> --page-index 2 --page-size 10
 CLI 会**严格校验**：传入 UUID 会直接报错（不会静默截断）。
 
 ## 命令
+
+### repo mr list
+
+查询仓库的合并请求列表。返回的 `iid` 用于 `repo mr show` / `repo mr comment` 子命令。
+
+```bash
+# 默认按创建时间倒序
+codearts-cli repo mr list <repo_id>
+
+# 过滤 + 分页
+codearts-cli repo mr list <repo_id> --state opened --target main --sort desc --limit 50
+```
+
+**API 参考**: [ListRepositoryMergeRequests](https://support.huaweicloud.com/api-codeartsrepo/ListRepositoryMergeRequests.html)
+
+| Flag | 说明 |
+| --- | --- |
+| `--state` | `all` / `opened` / `closed` / `merged`（默认 all） |
+| `--search` | 标题 / 描述关键字 |
+| `--author-id` | 按创建人 user_id 过滤（逗号分隔） |
+| `--source` / `--target` | 按源 / 目标分支过滤 |
+| `--order-by` | 排序字段：`created_at` / `updated_at`（默认 created_at） |
+| `--sort` | 排序方向：`asc` / `desc`（默认 desc） |
+| `--offset` / `--limit` | 分页（limit 1-100，默认 20） |
+| `--dry-run` | 预览请求 |
+
+**返回值**：MR DTO 数组，每条含 `iid`（MR 编号）、`title`、`state`、`source_branch` / `target_branch`、`author`、`notes`（评论数）等。
+
+### repo mr show
+
+查询单个合并请求的详情。
+
+```bash
+codearts-cli repo mr show <repo_id> <mr_iid>
+```
+
+**API 参考**: [ShowMergeRequestDetail](https://support.huaweicloud.com/api-codeartsrepo/ShowMergeRequestDetail.html)
 
 ### repo mr create
 
@@ -132,20 +169,43 @@ codearts-cli repo mr create <repo_id> --body-file mr.json
 
 **返回值**包含 `iid`（MR 编号，用于后续 `repo mr comment`）和 `web_url`（控制台链接）。
 
-### repo mr comment
+### repo mr comment list
+
+查询合并请求的检视意见（评论）列表。
+
+```bash
+codearts-cli repo mr comment list <repo_id> <mr_iid>
+
+# 过滤 + 分页
+codearts-cli repo mr comment list <repo_id> <mr_iid> --unresolved true --sort desc --limit 50
+```
+
+**API 参考**: [ListMergeRequestDiscussions](https://support.huaweicloud.com/api-codeartsrepo/ListMergeRequestDiscussions.html)
+
+| Flag | 说明 |
+| --- | --- |
+| `--unresolved` | `true`（仅未解决）/ `false`（仅已解决），省略为全部 |
+| `--author-id` | 按作者 user_id 过滤 |
+| `--sort` | 按创建时间排序：`asc` / `desc` |
+| `--offset` / `--limit` | 分页（limit 1-100，默认 20） |
+| `--dry-run` | 预览请求 |
+
+**返回值**：discussion 数组，每条含 `notes`（评论内容数组，`body` 即正文）、`severity`、`resolved`、`author` 等。
+
+### repo mr comment add
 
 给合并请求发检视意见。
 
 ```bash
 # 简单评论
-codearts-cli repo mr comment <repo_id> <mr_iid> --body "LGTM"
+codearts-cli repo mr comment add <repo_id> <mr_iid> --body "LGTM"
 
 # 带严重级别
-codearts-cli repo mr comment <repo_id> <mr_iid> \
+codearts-cli repo mr comment add <repo_id> <mr_iid> \
   --body "参数未校验" --severity major
 
 # 行级评论（需要 position 结构，用文件）
-codearts-cli repo mr comment <repo_id> <mr_iid> --body-file review.json
+codearts-cli repo mr comment add <repo_id> <mr_iid> --body-file review.json
 ```
 
 **API 参考**: [CreateMergeRequestDiscussion](https://support.huaweicloud.com/api-codeartsrepo/CreateMergeRequestDiscussion.html)
@@ -220,5 +280,9 @@ MR_IID=$(codearts-cli repo mr create 8147520 \
   | jq -r '.iid')
 
 # 3. 发检视意见
-codearts-cli repo mr comment 8147520 $MR_IID --body "请补单测" --severity minor
+codearts-cli repo mr comment add 8147520 $MR_IID --body "请补单测" --severity minor
+
+# 4. 查 MR 列表 / 读检视意见
+codearts-cli repo mr list 8147520 --state opened
+codearts-cli repo mr comment list 8147520 $MR_IID
 ```

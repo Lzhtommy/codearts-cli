@@ -34,10 +34,13 @@
 | 📋 工作项  | `issue statuses`     | ListIssueStatues                   | 查询工作项状态定义       |
 | 📋 工作项  | `issue comment list` | ListIssueComments†                 | 查询工作项评论列表       |
 | 📋 工作项  | `issue comment add`  | CreateIssueComment†                | 给工作项发评论           |
-| 🔀 代码托管 | `repo list`          | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
-| 🔀 代码托管 | `repo mr create`     | CreateMergeRequest                 | 创建合并请求             |
-| 🔀 代码托管 | `repo mr comment`    | CreateMergeRequestDiscussion       | 创建 MR 检视意见         |
-| 🔀 代码托管 | `repo member list`   | ListMembers                        | 查询仓库成员列表         |
+| 🔀 代码托管 | `repo list`            | ShowAllRepositoryByTwoProjectId    | 查询仓库列表             |
+| 🔀 代码托管 | `repo mr list`         | ListRepositoryMergeRequests        | 查询合并请求列表         |
+| 🔀 代码托管 | `repo mr show`         | ShowMergeRequestDetail             | 查询合并请求详情         |
+| 🔀 代码托管 | `repo mr create`       | CreateMergeRequest                 | 创建合并请求             |
+| 🔀 代码托管 | `repo mr comment list` | ListMergeRequestDiscussions        | 查询 MR 检视意见列表     |
+| 🔀 代码托管 | `repo mr comment add`  | CreateMergeRequestDiscussion       | 创建 MR 检视意见         |
+| 🔀 代码托管 | `repo member list`     | ListMembers                        | 查询仓库成员列表         |
 | 🛠️ 编译构建 | `build list`         | ListProjectJobs                    | 查询项目构建任务列表     |
 | 🛠️ 编译构建 | `build run`          | ExecuteJob                         | 触发构建                 |
 | 🛠️ 编译构建 | `build stop`         | StopTheJob                         | 停止运行中的构建         |
@@ -398,6 +401,31 @@ codearts-cli repo list --project-id <proj> --search "backend"
 | `--page-index` / `--page-size` | 分页（默认 20 条/页） |
 | `--dry-run` | 预览请求 |
 
+#### `repo mr list <repo_id>` — 查询合并请求列表
+
+```bash
+# 默认按创建时间倒序，返回的 iid 用于 show / comment 子命令
+codearts-cli repo mr list 8147520
+
+# 过滤 + 分页
+codearts-cli repo mr list 8147520 --state opened --target main --sort desc --limit 50
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--state` | `all` / `opened` / `closed` / `merged`（默认 all） |
+| `--search` | 标题 / 描述关键字 |
+| `--author-id` | 按创建人 user_id 过滤（逗号分隔） |
+| `--source` / `--target` | 按源 / 目标分支过滤 |
+| `--order-by` / `--sort` | 排序字段（created_at / updated_at）/ 方向（asc / desc） |
+| `--offset` / `--limit` | 分页（limit 1-100，默认 20） |
+
+#### `repo mr show <repo_id> <mr_iid>` — 查询合并请求详情
+
+```bash
+codearts-cli repo mr show 8147520 16
+```
+
 #### `repo mr create <repo_id>` — 创建合并请求
 
 ```bash
@@ -414,10 +442,26 @@ codearts-cli repo mr create 8147520 \
 | `--squash` / `--force-remove-source` | 合并选项 |
 | `--body-json` / `--body-file` | 完整 JSON body |
 
-#### `repo mr comment <repo_id> <mr_iid>` — 检视意见
+#### `repo mr comment list <repo_id> <mr_iid>` — 查询检视意见列表
 
 ```bash
-codearts-cli repo mr comment 8147520 15 --body "LGTM" --severity suggestion
+codearts-cli repo mr comment list 8147520 16
+
+# 过滤 + 分页
+codearts-cli repo mr comment list 8147520 16 --unresolved true --sort desc --limit 50
+```
+
+| Flag | 说明 |
+| --- | --- |
+| `--unresolved` | `true`（仅未解决）/ `false`（仅已解决），省略为全部 |
+| `--author-id` | 按作者 user_id 过滤 |
+| `--sort` | 按创建时间排序：asc / desc |
+| `--offset` / `--limit` | 分页（limit 1-100，默认 20） |
+
+#### `repo mr comment add <repo_id> <mr_iid>` — 创建检视意见
+
+```bash
+codearts-cli repo mr comment add 8147520 15 --body "LGTM" --severity suggestion
 ```
 
 #### `repo member list <repo_id>` — 查询仓库成员
@@ -602,7 +646,7 @@ codearts-cli/
 │   ├── config.go                     # config init / show / path / set
 │   ├── pipeline.go                   # pipeline list / run / stop / status
 │   ├── issue.go                      # issue list / show / create / batch-update / relations / members / statuses / comment list / comment add
-│   ├── repo.go                       # repo list / mr create / mr comment / member list
+│   ├── repo.go                       # repo list / mr list,show,create,comment / member list
 │   └── build.go                      # build list / run / stop / status
 └── internal/
     ├── core/config.go                # 配置加载 / 保存（~/.codearts-cli/config.json）
