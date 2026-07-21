@@ -14,11 +14,14 @@ import (
 	"path/filepath"
 )
 
-// Defaults for first-run config. All CodeArts traffic goes through a single
-// gateway (pipeline / projectman / repo are all reachable behind it), so the
-// old per-service regional endpoints are no longer part of the schema.
+// Defaults for first-run config. Region selects which Huawei Cloud regional
+// deployment the CLI signs against (the CodeArts service hostnames are derived
+// from it). Gateway is optional: when set, all traffic is forwarded through it
+// (the internal/VPC-endpoint deployment); when empty, requests go directly to
+// the region's public endpoints.
 const (
 	DefaultProjectID = "cd130bd8357b4e7ab293a7979d1c8711"
+	DefaultRegion    = "cn-south-1"
 	DefaultGateway   = "http://10.250.63.100:8099"
 
 	configDirName  = ".codearts-cli"
@@ -36,9 +39,16 @@ type Config struct {
 	AK        string `json:"ak"`
 	SK        string `json:"sk"`
 	ProjectID string `json:"projectId"`
-	// Gateway is the full base URL (scheme + host + optional port) fronting
-	// all CodeArts services. Example: "http://10.250.63.100:8099".
-	Gateway string `json:"gateway"`
+	// Region is the Huawei Cloud region the CodeArts tenant lives in, e.g.
+	// "cn-south-1" (Guangzhou) or "cn-north-4" (Beijing). Service hostnames —
+	// and therefore the request signature's Host — are derived from it, so a
+	// mismatched region will never resolve the right projects/repos.
+	Region string `json:"region,omitempty"`
+	// Gateway is an optional base URL (scheme + host + optional port) fronting
+	// all CodeArts services, e.g. "http://10.250.63.100:8099". When set, every
+	// request is forwarded through it while keeping the region's Host header;
+	// when empty, requests go directly to the region's public endpoints.
+	Gateway string `json:"gateway,omitempty"`
 	// UserID is the 32-char IAM user UUID of the caller. Optional overall
 	// but required for write APIs that default assignee/author to the caller
 	// (e.g. CreateIpdProjectIssue's `assignee` field).
@@ -54,11 +64,12 @@ func (c *Config) Validate() error {
 	if c.SK == "" {
 		return errors.New("sk is empty — run `codearts-cli config init` to set up credentials")
 	}
-	if c.Gateway == "" {
-		return errors.New("gateway is empty — run `codearts-cli config set gateway <url>`")
+	if c.Region == "" {
+		return errors.New("region is empty — run `codearts-cli config set region <region>` (e.g. cn-south-1, cn-north-4)")
 	}
-	// ProjectID is no longer universally required (pipeline/repo commands
-	// use --project-id flag instead). We only check AK/SK/Gateway here.
+	// Gateway is optional: empty means talk directly to the region's public
+	// endpoints. ProjectID is no longer universally required (pipeline/repo
+	// commands use --project-id flag instead), so we only check AK/SK/Region.
 	return nil
 }
 
@@ -81,7 +92,8 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &Config{ProjectID: DefaultProjectID, Gateway: DefaultGateway}, nil
+			// First run: default to the internal gateway deployment.
+			return &Config{ProjectID: DefaultProjectID, Region: DefaultRegion, Gateway: DefaultGateway}, nil
 		}
 		return nil, fmt.Errorf("read config %s: %w", p, err)
 	}
@@ -89,12 +101,15 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parse config %s: %w", p, err)
 	}
-	// Backfill defaults for forward-compat.
+	// Backfill defaults for forward-compat. Region backfills so pre-region
+	// configs keep hitting Guangzhou. Gateway is deliberately NOT backfilled:
+	// an empty gateway on disk means "talk directly to the region's public
+	// endpoints", which is exactly what a public multi-region user wants.
 	if cfg.ProjectID == "" {
 		cfg.ProjectID = DefaultProjectID
 	}
-	if cfg.Gateway == "" {
-		cfg.Gateway = DefaultGateway
+	if cfg.Region == "" {
+		cfg.Region = DefaultRegion
 	}
 	return cfg, nil
 }

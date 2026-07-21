@@ -31,15 +31,16 @@ cd codearts-cli && make install PREFIX=$HOME/.local
 codearts-cli config init
 ```
 
-交互式会依次询问 5 项：
+交互式会依次询问 6 项：
 
 | # | 字段       | 必填 | 说明                                              |
 | - | ---------- | ---- | ------------------------------------------------- |
-| 1 | AK         | 是   | IAM Access Key ID                                 |
+| 1 | AK         | 是   | IAM Access Key ID（账号级全局，跨 region 通用）   |
 | 2 | SK         | 是   | IAM Secret Access Key（输入时不回显）             |
 | 3 | Project ID | 默认 | CodeArts 项目 UUID（工作项接口直接使用此值，流水线/repo 可显式覆盖） |
-| 4 | Gateway    | 默认 | CodeArts 网关 URL，默认 `http://10.250.63.100:8099` |
-| 5 | User ID    | 可选 | IAM user_id（32 位 UUID），issue create 默认 assignee |
+| 4 | Region     | 是   | 租户所在 region，默认 `cn-south-1`；北京四填 `cn-north-4`。决定签名 Host |
+| 5 | Gateway    | 可选 | 内网转发网关 URL，默认 `http://10.250.63.100:8099`；输入 `-` 清空后直连公网端点 |
+| 6 | User ID    | 可选 | IAM user_id（32 位 UUID），issue create 默认 assignee |
 
 ### 非交互 / CI 模式
 
@@ -51,6 +52,7 @@ echo "$HW_SK" | codearts-cli config init \
 
 # 修改单个字段（不用走完整 init）
 codearts-cli config set userId <uuid>
+codearts-cli config set region cn-north-4
 codearts-cli config set gateway http://<host>:<port>
 ```
 
@@ -69,9 +71,19 @@ codearts-cli config set gateway http://<host>:<port>
 
 ## 端点解析
 
-所有服务共用 `config.json` 的 `gateway` 字段，默认 `http://10.250.63.100:8099`。不再按 region 推导，不再支持 `CODEARTS_*_ENDPOINT` 环境变量。切换网关：
+签名 Host 由 `config.json` 的 `region` 派生：`<服务>-ext.<region>.myhuaweicloud.com`（服务：cloudpipeline / projectman / codehub / cloudbuild）。`region` 必须与租户所在 region 一致，否则匹配不到项目/仓库。
+
+- `gateway` 非空：请求物理转发到网关，保留 region 的 Host，由网关按 Host 路由（内网部署）。
+- `gateway` 为空：直连该 region 的公网端点（公网多 region 场景）。
+
+不再支持 `CODEARTS_*_ENDPOINT` 环境变量。
 
 ```bash
+# 切 region（如北京四）
+codearts-cli config set region cn-north-4
+# 公网直连（清空网关）
+codearts-cli config set gateway ""
+# 内网切网关
 codearts-cli config set gateway http://<host>:<port>
 ```
 
@@ -81,6 +93,7 @@ codearts-cli config set gateway http://<host>:<port>
 
 服务端会在错误体中回显它自己算出的 `canonical_request`，直接与客户端的对比即可定位差异。常见原因：
 - AK/SK 错误 → `codearts-cli config show` 检查
+- region 与租户不符（Host 指错 region）→ `codearts-cli config set region <region>`
 - 网关 URL 错误 → `codearts-cli config set gateway <correct-url>`
 
 ### 400 PARSE_REQUEST_DATA_EXCEPTION
