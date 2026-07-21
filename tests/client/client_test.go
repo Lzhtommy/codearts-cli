@@ -143,3 +143,48 @@ func TestNew_MissingCredentials(t *testing.T) {
 		t.Error("New() should fail with empty AK/SK")
 	}
 }
+
+// Endpoints must be derived from the configured region so requests target the
+// tenant's actual region rather than a hardcoded one.
+func TestEndpoints_RegionDerived(t *testing.T) {
+	cli, err := client.New(&core.Config{AK: "a", SK: "s", Region: "cn-north-4"})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	cases := map[string]string{
+		"pipeline":   cli.PipelineEndpoint(),
+		"projectman": cli.ProjectManEndpoint(),
+		"repo":       cli.RepoEndpoint(),
+		"build":      cli.BuildEndpoint(),
+	}
+	for name, got := range cases {
+		if !strings.Contains(got, "cn-north-4") {
+			t.Errorf("%s endpoint = %q, want region cn-north-4", name, got)
+		}
+		if strings.Contains(got, "cn-south-1") {
+			t.Errorf("%s endpoint = %q leaked hardcoded cn-south-1", name, got)
+		}
+	}
+}
+
+// With no gateway configured, Do must connect directly to the endpoint host
+// (the region's public endpoint) instead of rewriting to a gateway.
+func TestDo_NoGateway_Direct(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer srv.Close()
+
+	cli, err := client.New(&core.Config{AK: "a", SK: "s", Region: "cn-north-4"})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	// Endpoint doubles as the transport target when no gateway is set.
+	out := map[string]interface{}{}
+	if err := cli.Do(context.Background(), "GET", srv.URL, "/test", nil, nil, &out); err != nil {
+		t.Fatalf("Do() error: %v", err)
+	}
+	if out["status"] != "ok" {
+		t.Errorf("Do() response = %v, want status=ok", out)
+	}
+}

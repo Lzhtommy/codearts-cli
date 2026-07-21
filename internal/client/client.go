@@ -15,17 +15,22 @@ import (
 	"github.com/Lzhtommy/codearts-cli/internal/core"
 )
 
-// Upstream hostnames the CLI signs requests against. These are stable
-// identities the gateway matches on (Host header) to route to the correct
-// upstream. Requests physically go to cfg.Gateway, but the Host header —
-// and therefore the AK/SK signature — must reference these names so Huawei
-// Cloud's IAM validator accepts the request after the gateway forwards.
+// Per-service subdomains for Huawei Cloud CodeArts. The full signing host is
+// "<sub>-ext.<region>.myhuaweicloud.com" — the region comes from config so the
+// Host header (and therefore the AK/SK signature) targets the tenant's actual
+// region. When a gateway is configured the request is forwarded to it while
+// keeping this Host, so the gateway can route by Host to the right upstream.
 const (
-	hostPipeline   = "cloudpipeline-ext.cn-south-1.myhuaweicloud.com"
-	hostProjectMan = "projectman-ext.cn-south-1.myhuaweicloud.com"
-	hostRepo       = "codehub-ext.cn-south-1.myhuaweicloud.com"
-	hostBuild      = "cloudbuild-ext.cn-south-1.myhuaweicloud.com"
+	subPipeline   = "cloudpipeline"
+	subProjectMan = "projectman"
+	subRepo       = "codehub"
+	subBuild      = "cloudbuild"
 )
+
+// serviceHost builds the signing hostname for a service in the given region.
+func serviceHost(sub, region string) string {
+	return sub + "-ext." + region + ".myhuaweicloud.com"
+}
 
 // Client is a thin HTTP wrapper for Huawei Cloud CodeArts APIs with AK/SK
 // request signing. All services (pipeline, projectman, repo) are reachable
@@ -38,6 +43,9 @@ type Client struct {
 
 // New builds a Client from a validated config.
 func New(cfg *core.Config) (*Client, error) {
+	if cfg.Region == "" {
+		cfg.Region = core.DefaultRegion
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -80,22 +88,22 @@ func (e *APIError) Error() string {
 // The scheme+host are fixed because the signature pins them; the actual TCP
 // connection goes to cfg.Gateway — see Do for the dial rewrite.
 func (c *Client) PipelineEndpoint() string {
-	return "https://" + hostPipeline
+	return "https://" + serviceHost(subPipeline, c.cfg.Region)
 }
 
 // ProjectManEndpoint returns the signing-time base URL for CodeArts ProjectMan.
 func (c *Client) ProjectManEndpoint() string {
-	return "https://" + hostProjectMan
+	return "https://" + serviceHost(subProjectMan, c.cfg.Region)
 }
 
 // RepoEndpoint returns the signing-time base URL for CodeArts Repo.
 func (c *Client) RepoEndpoint() string {
-	return "https://" + hostRepo
+	return "https://" + serviceHost(subRepo, c.cfg.Region)
 }
 
 // BuildEndpoint returns the signing-time base URL for CodeArts Build (CodeCI).
 func (c *Client) BuildEndpoint() string {
-	return "https://" + hostBuild
+	return "https://" + serviceHost(subBuild, c.cfg.Region)
 }
 
 // Do builds, signs, and sends a request to the given endpoint+path and
@@ -138,23 +146,16 @@ func (c *Client) Do(ctx context.Context, method, endpoint, path string, query ur
 		return fmt.Errorf("sign request: %w", err)
 	}
 
-	// Redirect TCP to the gateway while preserving the Host header (already
-	// baked into the signature). Without this the request would try to resolve
-	// the Huawei hostname directly, bypassing the gateway.
-	gwURL, err := url.Parse(c.cfg.Gateway)
-	if err != nil || gwURL.Host == "" {
-		return fmt.Errorf("invalid gateway %q in config: want http(s)://host[:port]", c.cfg.Gateway)
+	if err := c.routeTransport(req); err != nil {
+		return err
 	}
-	req.Host = req.URL.Host
-	req.URL.Scheme = gwURL.Scheme
-	req.URL.Host = gwURL.Host
 
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if os.IsTimeout(err) {
-			return fmt.Errorf("request timed out (30s) via gateway %s: check gateway reachability", c.cfg.Gateway)
+			return fmt.Errorf("request timed out (30s) via %s: check reachability", c.transportName())
 		}
-		return fmt.Errorf("send request via gateway %s: %w", c.cfg.Gateway, err)
+		return fmt.Errorf("send request via %s: %w", c.transportName(), err)
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
@@ -185,6 +186,32 @@ func (c *Client) Do(ctx context.Context, method, endpoint, path string, query ur
 	return nil
 }
 
+// routeTransport points the request's TCP target at the configured gateway
+// while preserving the signed Host header (already baked into the signature).
+// When no gateway is set, the request is left pointing at the region's public
+// hostname and goes there directly.
+func (c *Client) routeTransport(req *http.Request) error {
+	if c.cfg.Gateway == "" {
+		return nil // direct to the region's public endpoint; Host already correct
+	}
+	gwURL, err := url.Parse(c.cfg.Gateway)
+	if err != nil || gwURL.Host == "" {
+		return fmt.Errorf("invalid gateway %q in config: want http(s)://host[:port]", c.cfg.Gateway)
+	}
+	req.Host = req.URL.Host
+	req.URL.Scheme = gwURL.Scheme
+	req.URL.Host = gwURL.Host
+	return nil
+}
+
+// transportName describes where requests are physically sent, for error text.
+func (c *Client) transportName() string {
+	if c.cfg.Gateway == "" {
+		return "region " + c.cfg.Region + " public endpoint"
+	}
+	return "gateway " + c.cfg.Gateway
+}
+
 // DownloadSigned issues an AK/SK-signed GET to endpoint+path and streams the
 // response body to dst. Used for binary content (e.g. comment-embedded images).
 // Routes through cfg.Gateway the same way Do does so the Huawei hostname
@@ -204,13 +231,9 @@ func (c *Client) DownloadSigned(ctx context.Context, endpoint, path string, quer
 		return fmt.Errorf("sign request: %w", err)
 	}
 
-	gwURL, err := url.Parse(c.cfg.Gateway)
-	if err != nil || gwURL.Host == "" {
-		return fmt.Errorf("invalid gateway %q in config: want http(s)://host[:port]", c.cfg.Gateway)
+	if err := c.routeTransport(req); err != nil {
+		return err
 	}
-	req.Host = req.URL.Host
-	req.URL.Scheme = gwURL.Scheme
-	req.URL.Host = gwURL.Host
 
 	resp, err := c.http.Do(req)
 	if err != nil {

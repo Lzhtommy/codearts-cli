@@ -36,7 +36,7 @@ func newConfigCmd() *cobra.Command {
 func newConfigSetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set <key> <value>",
-		Short: "Update a single config field (ak | sk | projectId | gateway | userId)",
+		Short: "Update a single config field (ak | sk | projectId | region | gateway | userId)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := strings.ToLower(args[0])
@@ -52,12 +52,14 @@ func newConfigSetCmd() *cobra.Command {
 				cfg.SK = val
 			case "projectid", "project_id", "project-id":
 				cfg.ProjectID = val
+			case "region":
+				cfg.Region = val
 			case "gateway":
 				cfg.Gateway = val
 			case "userid", "user_id", "user-id":
 				cfg.UserID = val
 			default:
-				return fmt.Errorf("unknown key %q; valid keys: ak, sk, projectId, gateway, userId", args[0])
+				return fmt.Errorf("unknown key %q; valid keys: ak, sk, projectId, region, gateway, userId", args[0])
 			}
 			if err := core.Save(cfg); err != nil {
 				return err
@@ -76,6 +78,7 @@ type configInitOpts struct {
 	sk        string
 	skStdin   bool
 	projectID string
+	region    string
 	gateway   string
 	userID    string
 	yes       bool
@@ -103,7 +106,8 @@ The config is stored at ~/.codearts-cli/config.json with mode 0600.`,
 	cmd.Flags().StringVar(&o.sk, "sk", "", "Secret Access Key (INSECURE — prefer --sk-stdin)")
 	cmd.Flags().BoolVar(&o.skStdin, "sk-stdin", false, "Read SK from stdin (avoids process-list exposure)")
 	cmd.Flags().StringVar(&o.projectID, "project-id", core.DefaultProjectID, "Huawei Cloud project ID")
-	cmd.Flags().StringVar(&o.gateway, "gateway", core.DefaultGateway, "CodeArts gateway URL (e.g. http://10.250.63.100:8099)")
+	cmd.Flags().StringVar(&o.region, "region", core.DefaultRegion, "Huawei Cloud region (e.g. cn-south-1, cn-north-4)")
+	cmd.Flags().StringVar(&o.gateway, "gateway", core.DefaultGateway, "CodeArts gateway URL for internal forwarding; empty to hit the region's public endpoints directly")
 	cmd.Flags().StringVar(&o.userID, "user-id", "", "IAM user_id (32-char UUID); used as default assignee/author for write APIs")
 	cmd.Flags().BoolVarP(&o.yes, "yes", "y", false, "Skip overwrite confirmation if a config already exists")
 	return cmd
@@ -117,6 +121,7 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 	ak := o.ak
 	sk := o.sk
 	projectID := o.projectID
+	region := o.region
 	gateway := o.gateway
 
 	// Read SK from stdin if requested. This path is the recommended one for
@@ -177,14 +182,29 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 		}
 		projectID = v
 	}
+	if !cmd.Flags().Changed("region") && interactive {
+		def := region
+		if existing.Region != "" {
+			def = existing.Region
+		}
+		v, err := promptLine(cmd, reader, "Region (e.g. cn-south-1, cn-north-4)", def, false)
+		if err != nil {
+			return err
+		}
+		region = v
+	}
 	if !cmd.Flags().Changed("gateway") && interactive {
 		def := gateway
 		if existing.Gateway != "" {
 			def = existing.Gateway
 		}
+		fmt.Fprintln(cmd.ErrOrStderr(), "Gateway forwards all traffic through an internal endpoint. Enter \"-\" to skip it and use the region's public endpoints directly.")
 		v, err := promptLine(cmd, reader, "Gateway URL", def, true)
 		if err != nil {
 			return err
+		}
+		if v == "-" {
+			v = ""
 		}
 		gateway = v
 	}
@@ -209,6 +229,7 @@ func runConfigInit(cmd *cobra.Command, o *configInitOpts) error {
 		AK:        strings.TrimSpace(ak),
 		SK:        strings.TrimSpace(sk),
 		ProjectID: strings.TrimSpace(projectID),
+		Region:    strings.TrimSpace(region),
 		Gateway:   strings.TrimSpace(gateway),
 		UserID:    strings.TrimSpace(userID),
 	}

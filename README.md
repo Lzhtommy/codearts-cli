@@ -113,7 +113,7 @@ npx skills add Lzhtommy/codearts-cli -y -g
 
 **Step 2 — 配置凭证**
 
-> 交互式：用户需要在终端输入 AK、SK（不回显）、Project ID、Gateway URL、User ID。
+> 交互式：用户需要在终端输入 AK、SK（不回显）、Project ID、Region、Gateway URL、User ID。
 
 ```bash
 codearts-cli config init
@@ -154,15 +154,16 @@ npx skills add Lzhtommy/codearts-cli -s codearts-pipeline -y -g
 
 ### `config init`
 
-交互式初始化，依次输入 5 项：
+交互式初始化，依次输入 6 项：
 
 | # | 字段       | 必填 | 说明                                              |
 | - | ---------- | ---- | ------------------------------------------------- |
-| 1 | AK         | 是   | IAM Access Key ID                                 |
+| 1 | AK         | 是   | IAM Access Key ID（账号级全局，跨 region 通用）   |
 | 2 | SK         | 是   | IAM Secret Access Key（输入时不回显）             |
 | 3 | Project ID | 默认 | CodeArts 项目 UUID（工作项接口必须，流水线/仓库可显式传入） |
-| 4 | Gateway    | 默认 | 全局网关 URL，默认 `http://10.250.63.100:8099`    |
-| 5 | User ID    | 可选 | IAM user_id（32 位 UUID），`issue create` 默认 assignee |
+| 4 | Region     | 是   | 租户所在 region，默认 `cn-south-1`；北京四填 `cn-north-4`。决定签名 Host，填错则找不到对应项目/仓库 |
+| 5 | Gateway    | 可选 | 内网转发网关 URL，默认 `http://10.250.63.100:8099`；输入 `-` 清空后直连 region 公网端点 |
+| 6 | User ID    | 可选 | IAM user_id（32 位 UUID），`issue create` 默认 assignee |
 
 ### `config set <key> <value>`
 
@@ -170,10 +171,13 @@ npx skills add Lzhtommy/codearts-cli -s codearts-pipeline -y -g
 
 ```bash
 codearts-cli config set userId <uuid>
+codearts-cli config set region cn-north-4
 codearts-cli config set gateway http://10.250.63.100:8099
+# 公网直连（清空网关）：
+codearts-cli config set gateway ""
 ```
 
-可用 key：`ak` / `sk` / `projectId` / `gateway` / `userId`
+可用 key：`ak` / `sk` / `projectId` / `region` / `gateway` / `userId`
 
 ### `config show` / `config path`
 
@@ -565,11 +569,19 @@ codearts-cli pipeline run <pid> --project-id <proj> --dry-run
 codearts-cli issue create --title "x" --description "x" --category Bug --dry-run
 ```
 
-### 网关
+### Region 与网关
 
-所有服务（流水线 / 工作项 / 代码托管 / 编译构建）统一走 `config.json` 中的 `gateway` 字段，默认 `http://10.250.63.100:8099`。切换网关：
+签名 Host 由 `config.json` 的 `region` 派生（`<服务>-ext.<region>.myhuaweicloud.com`），所以 `region` 必须与租户所在 region 一致，否则永远匹配不到对应的项目/仓库。AK/SK 是账号级全局的，切 region 不用换凭证。
+
+- **内网部署（默认）**：`region=cn-south-1` + `gateway=http://10.250.63.100:8099`。请求带广州 Host，物理转发到网关，由网关按 Host 路由。
+- **公网多 region（如北京四）**：`region=cn-north-4` + `gateway` 留空，直连该 region 的公网端点，无需网关。
 
 ```bash
+# 广州内网 → 北京四公网
+codearts-cli config set region cn-north-4
+codearts-cli config set gateway ""
+
+# 切换内网网关
 codearts-cli config set gateway http://<your-gateway>:<port>
 ```
 
