@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// version is overridden at build time via -ldflags "-X github.com/Lzhtommy/codearts-cli/cmd.version=<ver>".
+// version is overridden at build time via -ldflags "-X github.com/horizon0514/codearts-cli/cmd.version=<ver>".
 // Keep as var (not const) so the linker flag can take effect.
 var version = "dev"
 

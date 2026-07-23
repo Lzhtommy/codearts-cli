@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Lzhtommy/codearts-cli/cmd"
+	"github.com/horizon0514/codearts-cli/cmd"
 )
 
 // ---- parseRepoID ----

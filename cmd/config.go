@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/Lzhtommy/codearts-cli/internal/core"
-	"github.com/Lzhtommy/codearts-cli/internal/output"
+	"github.com/horizon0514/codearts-cli/internal/core"
+	"github.com/horizon0514/codearts-cli/internal/output"
 )
 
 func newConfigCmd() *cobra.Command {

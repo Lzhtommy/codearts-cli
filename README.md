@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
-[![npm version](https://img.shields.io/npm/v/@autelrobotics/codearts-cli.svg)](https://www.npmjs.com/package/@autelrobotics/codearts-cli)
+[![npm version](https://img.shields.io/npm/v/@horizon0514/codearts-cli.svg)](https://www.npmjs.com/package/@horizon0514/codearts-cli)
 
 华为云 [CodeArts](https://www.huaweicloud.com/product/codearts.html) 命令行工具，为人类和 AI Agent 而建。覆盖流水线、工作项管理、代码托管、编译构建四大模块共 21 个接口，配套 5 个 AI Agent [Skills](./skills/)。
 
@@ -67,10 +67,10 @@
 
 ```bash
 # 安装 CLI
-npm install -g @autelrobotics/codearts-cli
+npm install -g @horizon0514/codearts-cli
 
 # 安装 AI Agent Skills（可选但推荐）
-npx skills add Lzhtommy/codearts-cli -y -g
+npx skills add horizon0514/codearts-cli -y -g
 ```
 
 **方式 2 — 从源码构建：**
@@ -78,12 +78,12 @@ npx skills add Lzhtommy/codearts-cli -y -g
 需要 Go `v1.23`+。
 
 ```bash
-git clone https://github.com/Lzhtommy/codearts-cli.git
+git clone https://github.com/horizon0514/codearts-cli.git
 cd codearts-cli
 make install PREFIX=$HOME/.local
 
 # 安装 AI Agent Skills（可选）
-npx skills add Lzhtommy/codearts-cli -y -g
+npx skills add horizon0514/codearts-cli -y -g
 ```
 
 #### 配置 & 使用
@@ -107,8 +107,8 @@ codearts-cli issue list --issue-type Bug
 **Step 1 — 安装**
 
 ```bash
-npm install -g @autelrobotics/codearts-cli
-npx skills add Lzhtommy/codearts-cli -y -g
+npm install -g @horizon0514/codearts-cli
+npx skills add horizon0514/codearts-cli -y -g
 ```
 
 **Step 2 — 配置凭证**
@@ -144,10 +144,10 @@ codearts-cli issue list --issue-type Bug --dry-run
 
 ```bash
 # 安装全部 skills
-npx skills add Lzhtommy/codearts-cli -y -g
+npx skills add horizon0514/codearts-cli -y -g
 
 # 仅安装特定 skill
-npx skills add Lzhtommy/codearts-cli -s codearts-pipeline -y -g
+npx skills add horizon0514/codearts-cli -s codearts-pipeline -y -g
 ```
 
 ## 配置
@@ -686,7 +686,7 @@ codearts-cli/
 
 ## 贡献
 
-欢迎社区贡献！如果发现 Bug 或有功能建议，请提交 [Issue](https://github.com/Lzhtommy/codearts-cli/issues) 或 [Pull Request](https://github.com/Lzhtommy/codearts-cli/pulls)。
+欢迎社区贡献！如果发现 Bug 或有功能建议，请提交 [Issue](https://github.com/horizon0514/codearts-cli/issues) 或 [Pull Request](https://github.com/horizon0514/codearts-cli/pulls)。
 
 重大变更建议先通过 Issue 讨论。
 

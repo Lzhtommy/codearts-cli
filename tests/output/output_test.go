@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Lzhtommy/codearts-cli/internal/output"
+	"github.com/horizon0514/codearts-cli/internal/output"
 )
 
 func TestPrintJSON(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Lzhtommy/codearts-cli/internal/client"
-	"github.com/Lzhtommy/codearts-cli/internal/core"
+	"github.com/horizon0514/codearts-cli/internal/client"
+	"github.com/horizon0514/codearts-cli/internal/core"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) (*client.Client, *httptest.Server) {

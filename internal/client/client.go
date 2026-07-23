@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lzhtommy/codearts-cli/internal/core"
+	"github.com/horizon0514/codearts-cli/internal/core"
 )
 
 // Per-service subdomains for Huawei Cloud CodeArts. The full signing host is

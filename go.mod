@@ -1,4 +1,4 @@
-module github.com/Lzhtommy/codearts-cli
+module github.com/horizon0514/codearts-cli
 
 go 1.26.2
 

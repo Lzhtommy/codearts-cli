@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Lzhtommy/codearts-cli/internal/core"
+	"github.com/horizon0514/codearts-cli/internal/core"
 )
 
 func TestValidate_OK(t *testing.T) {

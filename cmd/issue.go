@@ -18,9 +18,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Lzhtommy/codearts-cli/internal/client"
-	"github.com/Lzhtommy/codearts-cli/internal/core"
-	"github.com/Lzhtommy/codearts-cli/internal/output"
+	"github.com/horizon0514/codearts-cli/internal/client"
+	"github.com/horizon0514/codearts-cli/internal/core"
+	"github.com/horizon0514/codearts-cli/internal/output"
 )
 
 func newIssueCmd() *cobra.Command {

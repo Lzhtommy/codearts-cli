@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"github.com/Lzhtommy/codearts-cli/cmd"
+	"github.com/horizon0514/codearts-cli/cmd"
 )
 
 func main() {

@@ -17,10 +17,10 @@ metadata:
 
 ```bash
 # npm 全局安装（自动下载预编译二进制）
-npm install -g @autelrobotics/codearts-cli
+npm install -g @horizon0514/codearts-cli
 
 # 或从源码
-git clone https://github.com/Lzhtommy/codearts-cli.git
+git clone https://github.com/horizon0514/codearts-cli.git
 cd codearts-cli && make install PREFIX=$HOME/.local
 ```
 

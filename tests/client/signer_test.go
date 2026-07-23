@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/Lzhtommy/codearts-cli/internal/client"
+	"github.com/horizon0514/codearts-cli/internal/client"
 )
 
 func TestHashHex_Empty(t *testing.T) {
