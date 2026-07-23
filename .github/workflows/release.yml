@@ -1,0 +1,59 @@
+name: release
+
+# Tag-driven release: push a tag like v0.8.0 and this workflow
+#   1. cross-compiles all platform archives (make dist)
+#   2. creates the GitHub Release and uploads the archives
+#   3. publishes the npm package
+#
+# The install.js postinstall hook downloads binaries from the GitHub
+# Release, so the Release must be created BEFORE npm publish — hence the
+# single ordered job below.
+#
+# Required repo secret: NPM_TOKEN (an npm automation token).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      # The tag (v0.8.0) must match package.json version (0.8.0), because
+      # both the dist archive names and install.js derive from package.json.
+      - name: Check tag matches package.json version
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$pkg" != "$tag" ]; then
+            echo "::error::tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+
+      - name: Build platform archives
+        run: make dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
